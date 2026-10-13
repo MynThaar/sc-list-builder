@@ -1,4 +1,4 @@
-# StarCraft List Builder
+# StarCraft List Builder v12.5
 
 Browser list builder for StarCraft: The Miniatures Game, including **Trouble in the Koprulu Sector** campaign mode.
 

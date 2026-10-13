@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>StarCraft List Builder v12</title>
+<title>StarCraft List Builder v12.5</title>
 <style>
   :root {
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
@@ -161,6 +161,18 @@
 
   textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px; min-height:140px; font-family:monospace; }
   #err { display:none; background:#3a1f24; border:1px solid var(--err); padding:12px; margin-bottom:12px; border-radius:8px; }
+  .filesel { min-width:min(100%,280px); }
+  .sheetcard { background:var(--panel); border:1px solid var(--line); border-top:5px solid var(--sc, var(--min)); border-radius:10px; padding:16px; margin:0 0 14px; break-inside:avoid; page-break-inside:avoid; }
+  .sheetcard h3 { margin:0 0 8px; font-size:1.3rem; }
+  .sheetcard .kind { color:var(--sc, var(--muted)); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; font-weight:bold; }
+  #printSheet { display:none; }
+  body.pdfing { max-width:none; padding:0; }
+  body.pdfing .stick, body.pdfing #app, body.pdfing #err, body.pdfing #overlay { display:none !important; }
+  body.pdfing #printSheet { display:block; padding:12px; }
+  body.pdfing, body.pdfing #printSheet {
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    background:var(--bg); color:var(--text);
+  }
 
   /* card detail viewer */
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:flex-start; justify-content:center; padding:20px 12px; overflow-y:auto; z-index:50; }
@@ -204,19 +216,20 @@
     .adds { width:100%; grid-template-columns:3.4em 1fr; }
   }
   @media print {
-    :root { --bg:#fff; --panel:#fff; --panel2:#eee; --text:#000; --muted:#444; --line:#999; }
-    .noprint, .overlay { display:none !important; }
-    .stick { position:static; padding-top:0; }
-    .titlebar { background:#eee; }
+    .noprint, .overlay, .stick, #app, #err { display:none !important; }
+    body.pdfing #printSheet { display:block; }
+    body, body.pdfing, body.pdfing #printSheet {
+      background:var(--bg) !important; color:var(--text) !important;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    }
     .qty button, .chev { display:none; }
-    .upgline { color:#0a7a0a; }
-    .statpeek { margin-left:10px; }
+    @page { margin:12mm; }
   }
 </style>
 </head>
 <body>
 <div class="stick">
-  <div class="titlebar"><h1 id="appTitle">StarCraft List Builder</h1><span class="ver" id="verline">v12 · tap any card name to see its details</span></div>
+  <div class="titlebar"><h1 id="appTitle">StarCraft List Builder</h1><span class="ver" id="verline">v12.5 · tap any card name to see its details</span></div>
   <div class="panel" id="totals"></div>
 </div>
 <div id="err"></div>
@@ -249,6 +262,7 @@
 </div>
 
 <div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"></div></div>
+<div id="printSheet"></div>
 
 <script src="sc-data.js"></script>
 <script>
@@ -283,6 +297,8 @@ const WCOLS=typeof WEAPON_COLS!=="undefined"?WEAPON_COLS:[["rng","RNG"],["tgt","
 const ABILITY_TYPES=["Active","Reaction","Passive"];
 const DEFMAX=DATA.defaultMax||3;
 const KEY="sc-list-builder-v10"; // same key as earlier versions, so a saved list can carry over
+const LIB_ARMY="sc-list-builder-library-armies";
+const LIB_REG="sc-list-builder-library-registers";
 const TACT=Array.isArray(DATA.tactical)?DATA.tactical:[];
 const MODES=typeof GAME_MODES!=="undefined"?GAME_MODES:{skirmish:{id:"skirmish",name:"Skirmish",table:'36" × 36"',minerals:1000},standard:{id:"standard",name:"Standard",table:'36" × 54"',minerals:2000}};
 const MISSIONS=Array.isArray(DATA.missions)?DATA.missions:[];
@@ -591,6 +607,150 @@ function load(){
   }catch(e){return null}
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function libGet(key){try{const a=JSON.parse(localStorage.getItem(key));return Array.isArray(a)?a:[]}catch(e){return []}}
+function libSet(key,a){try{localStorage.setItem(key,JSON.stringify(a))}catch(e){}}
+function fileBase(){return ((S.name||"unnamed").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"unnamed")}
+function downloadJson(obj,name){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),800);
+}
+function packArmy(){
+  return {kind:"army",v:12.5,saved:new Date().toISOString(),name:S.name||"Unnamed list",play:S.play||"battle",race:S.race,card:S.card,tact:S.tact,units:S.units,minLim:S.minLim,mode:S.mode,mission:S.mission,deploy:S.deploy};
+}
+function packRegister(){
+  if(!S.camp)return null;
+  return {kind:"register",v:12.5,saved:new Date().toISOString(),name:S.name||(race().name+" Register"),race:S.race,camp:JSON.parse(JSON.stringify(S.camp))};
+}
+function pruneGameToRegister(){
+  if(!isCampaign()||!S.camp)return;
+  S.units=(S.units||[]).filter(e=>{
+    if(e.rid==null)return false;
+    const re=S.camp.units[e.rid];
+    return re&&re.id===e.id;
+  });
+  for(const id in S.tact||{}){
+    const cap=regTact(id);
+    if(!cap)delete S.tact[id];
+    else if(S.tact[id]>cap)S.tact[id]=cap;
+  }
+  if(!campHas(S.card))S.card=(S.camp.cards&&S.camp.cards[0])||starterCard();
+}
+function attachArmyRids(units){
+  if(!isCampaign()||!S.camp)return units;
+  const used=new Set(),out=[];
+  for(const e of units||[]){
+    const list=S.camp.units||[];
+    let rid=e.rid!=null&&list[e.rid]&&list[e.rid].id===e.id&&!used.has(e.rid)?e.rid:-1;
+    if(rid<0){
+      for(let i=0;i<list.length;i++){
+        if(used.has(i))continue;
+        if(list[i].id===e.id&&(+list[i].opt||0)===(+e.opt||0)){rid=i;break}
+      }
+    }
+    if(rid<0)continue;
+    used.add(rid);
+    const re=list[rid];
+    out.push({id:e.id,opt:re.opt,ups:Array.isArray(e.ups)?e.ups.slice():[],rid});
+  }
+  return out;
+}
+function applyArmy(pack){
+  if(!pack||pack.kind&&pack.kind!=="army")return "That file is not an army list.";
+  if(!DATA.races[pack.race])return "Unknown race in that army list.";
+  const r=DATA.races[pack.race],us=r.units||[];
+  if(pack.play&&playOk(pack.play))S.play=pack.play;
+  if(pack.race!==S.race){
+    const play=S.play,name=pack.name||S.name,minLim=+pack.minLim||S.minLim||0;
+    S=Object.assign(fresh(pack.race),{name,minLim,play,colL:S.colL,colR:S.colR,regL:S.regL,regR:S.regR});
+    S.gasLim=gasFromMin(S.minLim);
+  }
+  S.name=pack.name||S.name||"";
+  if(r.cards[pack.card])S.card=pack.card;
+  S.minLim=+pack.minLim||0;S.gasLim=gasFromMin(S.minLim);
+  if(modeOk(pack.mode))S.mode=pack.mode;
+  S.mission=missionById(pack.mission)&&missionById(pack.mission).mode===S.mode?pack.mission:"";
+  S.deploy=deployById(pack.deploy)&&deployById(pack.deploy).mode===S.mode?pack.deploy:"";
+  const t={};for(const id in pack.tact||{})if(TACT.some(x=>x.id===id)&&pack.tact[id]>0)t[id]=pack.tact[id];
+  S.tact=t;
+  S.units=(Array.isArray(pack.units)?pack.units:[]).filter(e=>e&&us.some(u=>u.id===e.id)).map(e=>{
+    const u=us.find(x=>x.id===e.id),n=options(u).length;
+    if(!(e.opt>=0&&e.opt<n))e.opt=0;
+    cleanUps(e,u);
+    return {id:e.id,opt:e.opt,ups:e.ups||[],rid:e.rid};
+  });
+  if(isCampaign()){
+    ensureCampaign();
+    const raw=S.units||[];
+    const want=raw.filter(e=>{const u=unitById(e.id);return u&&u.slot!=="Summons"}).length;
+    const att=attachArmyRids(raw);
+    const got=att.filter(e=>{const u=unitById(e.id);return u&&u.slot!=="Summons"}).length;
+    if(want&&!got){
+      S.play="battle";
+      S.units=raw.map(e=>({id:e.id,opt:e.opt,ups:e.ups||[]}));
+      S.fileMsg="Register did not match, so this army was opened as a Single Battle list.";
+    }else{S.units=att;pruneGameToRegister()}
+  }
+  return "";
+}
+function applyRegister(pack){
+  if(!pack||pack.kind&&pack.kind!=="register")return "That file is not a campaign Register.";
+  if(!DATA.races[pack.race]||!pack.camp)return "Unknown race or empty Register.";
+  S.play="campaign";
+  if(pack.race!==S.race){
+    S=Object.assign(fresh(pack.race),{name:pack.name||S.name,minLim:S.minLim,play:"campaign",colL:S.colL,colR:S.colR,regL:S.regL,regR:S.regR});
+    S.gasLim=gasFromMin(S.minLim);
+  }
+  if(pack.name)S.name=pack.name;
+  const r=DATA.races[S.race],us=r.units||[],c=pack.camp;
+  S.camp={
+    race:S.race,
+    credits:Math.max(0,+c.credits||0),
+    earned:Math.max(0,+c.earned||CAMP_START),
+    bumps:+c.bumps||0,
+    units:Array.isArray(c.units)?c.units.filter(e=>e&&us.some(u=>u.id===e.id)):[],
+    tact:{},
+    cards:Array.isArray(c.cards)?c.cards.filter(k=>r.cards[k]):[starterCard()]
+  };
+  if(!S.camp.cards.length)S.camp.cards=[starterCard()];
+  const ct={};for(const id in c.tact||{})if(TACT.some(x=>x.id===id)&&c.tact[id]>0)ct[id]=c.tact[id];
+  S.camp.tact=ct;
+  if(S.camp.earned<S.camp.credits)S.camp.earned=S.camp.credits;
+  S.card=S.camp.cards.includes(S.card)?S.card:S.camp.cards[0];
+  pruneGameToRegister();
+  return "";
+}
+function libSave(key,pack,label){
+  const name=(S.name||label).trim()||label;
+  pack.name=name;
+  const a=libGet(key);
+  const hit=a.findIndex(x=>x.name.toLowerCase()===name.toLowerCase());
+  const row={id:hit>=0?a[hit].id:Date.now().toString(36),name,saved:pack.saved,data:pack};
+  if(hit>=0){
+    if(!confirm("Replace saved \""+name+"\"?"))return false;
+    a[hit]=row;
+  }else a.unshift(row);
+  libSet(key,a);
+  return row.id;
+}
+function libLoad(key,id){
+  const x=libGet(key).find(e=>e.id===id);
+  return x&&x.data;
+}
+function libDel(key,id){
+  libSet(key,libGet(key).filter(e=>e.id!==id));
+}
+function libOptions(key,cur){
+  const a=libGet(key);
+  if(!a.length)return '<option value="">None saved yet</option>';
+  return a.map(x=>`<option value="${esc(x.id)}"${x.id===cur?" selected":""}>${esc(x.name)} · ${(x.saved||"").slice(0,10)}</option>`).join("");
+}
+function readJsonFile(file,cb){
+  const r=new FileReader();
+  r.onload=()=>{try{cb(JSON.parse(r.result),"")}catch(e){cb(null,"That file is not valid JSON.")}};
+  r.onerror=()=>cb(null,"Could not read that file.");
+  r.readAsText(file);
+}
 function gasFromMin(min){return Math.floor(Math.max(0,+min||0)*(DATA.gasPercent||0.10))}
 function setMinLim(v){S.minLim=Math.max(0,+v||0);S.gasLim=gasFromMin(S.minLim)}
 let S=load()||fresh();
@@ -1132,14 +1292,45 @@ function textList(T){
 }
 
 function renderExport(T){
-  $("exportPanel").innerHTML=`<h2>Export</h2>
+  const armyOpts=libOptions(LIB_ARMY,S.libArmy);
+  const regOpts=libOptions(LIB_REG,S.libReg);
+  const fileNote=S.fileMsg||"";S.fileMsg="";
+  let h=`<h2>Files &amp; Export</h2>
+    <div class="subhead">Army lists · Single Battle and Campaign rosters</div>
+    <div class="row">
+      <button data-act="saveArmy">Save army list</button>
+      <button data-act="dlArmy">Download JSON</button>
+      <button data-act="upArmy">Load JSON…</button>
+      <input type="file" accept="application/json" data-ch="fileArmy" hidden>
+    </div>
+    <div class="row">
+      <select class="filesel" data-ch="libArmy">${armyOpts}</select>
+      <button data-act="loadArmy">Load</button>
+      <button class="del" data-act="delArmy">Delete</button>
+    </div>`;
+  if(isCampaign())h+=`
+    <div class="subhead">Campaign registers · owned units, cards and credits</div>
+    <div class="row">
+      <button data-act="saveReg">Save register</button>
+      <button data-act="dlReg">Download JSON</button>
+      <button data-act="upReg">Load JSON…</button>
+      <input type="file" accept="application/json" data-ch="fileReg" hidden>
+    </div>
+    <div class="row">
+      <select class="filesel" data-ch="libReg">${regOpts}</select>
+      <button data-act="loadReg">Load</button>
+      <button class="del" data-act="delReg">Delete</button>
+    </div>`;
+  h+=`<div class="subhead">Text export</div>
     <textarea id="exportText" readonly>${esc(textList(T))}</textarea>
     <div class="row" style="margin-top:8px">
-      <button data-act="copy">Copy list</button>
-      <button data-act="print">Print</button>
+      <button data-act="copy">Copy text</button>
+      <button data-act="pdf">Export PDF</button>
       <button class="del" data-act="clear">Clear list</button>
-      <span class="meta" id="copyMsg"></span>
-    </div>`;
+      <span class="meta" id="copyMsg">${esc(fileNote)}</span>
+    </div>
+    <div class="meta">PDF opens the print dialog with full card rules in this site’s layout. Choose Save as PDF and keep background graphics on.</div>`;
+  $("exportPanel").innerHTML=h;
 }
 
 function render(){
@@ -1149,56 +1340,88 @@ function render(){
   document.body.classList.toggle("campaign",isCampaign());
   const title=$("appTitle"),ver=$("verline");
   if(title)title.textContent=isCampaign()?"StarCraft Campaign":"StarCraft List Builder";
-  if(ver)ver.textContent=isCampaign()?"Trouble in the Koprulu Sector · tap any card name to see its details":"v12 · tap any card name to see its details";
+  if(ver)ver.textContent=isCampaign()?"Trouble in the Koprulu Sector · tap any card name to see its details":"v12.5 · tap any card name to see its details";
   renderSetup();renderCampaign(T);renderRegCols();renderTotals(T,W);renderSlots(T);renderCols(T);renderExport(T);
   save();
 }
 
 // ---- Card viewer ----
 let lastFocus=null;
-function openCard(kind,id,ui){
-  const m=$("modal");let sc="",kindTxt="",title="",body="";
+function cardDetail(kind,id,ui){
   if(kind==="unit"){
-    const u=unitById(id);if(!u)return;
+    const u=unitById(id);if(!u)return null;
     const e=ui!=null&&S.units[+ui]&&S.units[+ui].id===id?S.units[+ui]:null;
-    sc=" s-"+u.slot;kindTxt=`${u.slot} unit`;title=esc(u.name)+uniqueTag(u);
-    body=`<div>${unitTags(u)}</div><div class="meta" style="margin-top:6px">${e?`Minerals: ${entryMin(e,u)} · Supply ${(options(u)[e.opt]||options(u)[0]).supply}`:costLine(u)}</div>`;
-    body+=(u.abilities&&u.abilities.length)||(u.weapons&&u.weapons.length)?profile(u):profile(u)+'<div class="nodata">No abilities or weapons entered yet.</div>';
-    body+=renderUpgrades(e?selectedUps(e,u):unitUpgrades(u),e||undefined);
-  }else if(kind==="faction"){
-    const c=race().cards[id];if(!c)return;
-    kindTxt="Faction card";title=esc(c.name)+uniqueTag(c);
-    body=`${c.info||c.text?`<div class="info">${esc(c.info||c.text)}</div>`:""}<div>${fmtSlots(c.slots)}</div><div class="meta">Starts with ${c.resource||0} ${esc(race().resource||"")}</div>`;
-    const pb=phaseBlocks(c.abilities,c.weapons);
-    body+=pb||'<div class="nodata">No abilities entered for this card yet.</div>';
-  }else if(kind==="tact"){
-    const t=tactById(id);if(!t)return;
-    kindTxt="Tactical card";title=esc(t.name)+uniqueTag(t);
-    body=`${t.info||t.text?`<div class="info">${esc(t.info||t.text)}</div>`:""}<div>${fmtSlots(t.slots)}${t.gas?`<span class="tag gas">${t.gas} Vespene</span>`:""}${t.resource?`<span class="tag pe">+${t.resource} ${esc(abbr(race().resource))}</span>`:""}</div>`;
-    const pb=phaseBlocks(t.abilities,t.weapons);
-    body+=pb||(t.text||t.info?"":'<div class="nodata">No details entered for this card yet.</div>');
-  }else if(kind==="mission"){
-    const x=missionById(id);if(!x)return;
+    let body=`<div>${unitTags(u)}</div><div class="meta" style="margin-top:6px">${e?`Minerals: ${entryMin(e,u)} · Supply ${(options(u)[e.opt]||options(u)[0]).supply}`:costLine(u)}</div>`;
+    body+=profile(u);
+    body+=renderUpgrades(e?selectedUps(e,u):[],e||undefined);
+    return {sc:" s-"+u.slot,kindTxt:u.slot+" unit",title:esc(u.name)+uniqueTag(u),body};
+  }
+  if(kind==="faction"){
+    const c=race().cards[id];if(!c)return null;
+    let body=`${c.info||c.text?`<div class="info">${esc(c.info||c.text)}</div>`:""}<div>${fmtSlots(c.slots)}</div><div class="meta">Starts with ${c.resource||0} ${esc(race().resource||"")}</div>`;
+    body+=phaseBlocks(c.abilities,c.weapons)||'<div class="nodata">No abilities entered for this card yet.</div>';
+    return {sc:"",kindTxt:"Faction card",title:esc(c.name)+uniqueTag(c),body};
+  }
+  if(kind==="tact"){
+    const t=tactById(id);if(!t)return null;
+    let body=`${t.info||t.text?`<div class="info">${esc(t.info||t.text)}</div>`:""}<div>${fmtSlots(t.slots)}${t.gas?`<span class="tag gas">${t.gas} Vespene</span>`:""}${t.resource?`<span class="tag pe">+${t.resource} ${esc(abbr(race().resource))}</span>`:""}</div>`;
+    body+=phaseBlocks(t.abilities,t.weapons)||(t.text||t.info?"":'<div class="nodata">No details entered for this card yet.</div>');
+    return {sc:"",kindTxt:"Tactical card",title:esc(t.name)+uniqueTag(t),body};
+  }
+  if(kind==="mission"){
+    const x=missionById(id);if(!x)return null;
     const md=MODES[x.mode];
-    sc=" m-"+(x.mode||"standard");
-    kindTxt=(md?md.name+" ":"")+"mission";
-    title=esc(x.name);
-    body=missionBody(x);
-  }else if(kind==="deploy"){
-    const x=deployById(id);if(!x)return;
-    const md=MODES[x.mode];
-    const src=x.img?encodeURI(x.img):"";
-    sc=" m-"+(x.mode||"standard")+" map";
-    kindTxt=(md?md.name+" ":"")+"deployment";
-    title=esc(x.name);
-    body=`<div class="meta">${md?esc(md.table):""}</div>`;
-    if(src){
-      body+=`<img class="mapimg" src="${esc(src)}" alt="${esc(x.name)} deployment map" onerror="this.hidden=true;if(this.nextElementSibling)this.nextElementSibling.hidden=false">
-        <div class="nodata" hidden>Add the map jpeg as <code>${esc(src)}</code> in the builder folder, then tap this name again.</div>`;
-    }else body+='<div class="nodata">No map image set for this deployment.</div>';
-  }else return;
-  m.className="modal"+sc;
-  m.innerHTML=`<div class="modal-head"><div><div class="kind">${esc(kindTxt)}</div><h3 id="mTitle">${title}</h3></div><button data-close aria-label="Close">✕</button></div>${body}`;
+    return {sc:" m-"+(x.mode||"standard"),kindTxt:(md?md.name+" ":"")+"mission",title:esc(x.name),body:missionBody(x)};
+  }
+  if(kind==="deploy"){
+    const x=deployById(id);if(!x)return null;
+    const md=MODES[x.mode],src=x.img?encodeURI(x.img):"";
+    let body=`<div class="meta">${md?esc(md.table):""}</div>`;
+    if(src)body+=`<img class="mapimg" src="${esc(src)}" alt="${esc(x.name)} deployment map">`;
+    else body+='<div class="nodata">No map image set for this deployment.</div>';
+    return {sc:" m-"+(x.mode||"standard")+" map",kindTxt:(md?md.name+" ":"")+"deployment",title:esc(x.name),body};
+  }
+  return null;
+}
+function sheetCard(d){
+  if(!d)return "";
+  return `<article class="sheetcard${d.sc}"><div class="kind">${esc(d.kindTxt)}</div><h3>${d.title}</h3>${d.body}</article>`;
+}
+function pdfSheetHtml(T){
+  const c=card(),md=MODES[S.mode],mi=missionById(S.mission),dp=deployById(S.deploy);
+  let h=`<div class="titlebar"><h1>${esc(S.name||"Unnamed list")}</h1><span class="ver">${isCampaign()?"Campaign · Trouble in the Koprulu Sector":"Single Battle"} · v12.5</span></div>
+    <div class="panel"><div class="totals">
+      <span class="min">Minerals: ${T.min}${S.minLim?" / "+S.minLim:""}</span>
+      <span class="gas">Vespene: ${T.gas}${S.gasLim?" / "+S.gasLim:""}</span>
+      <span>Supply: ${T.sup}</span>
+      <span class="res">${esc(resName(T.res))}: ${T.res}</span>
+    </div>
+    <div class="meta" style="margin-top:8px">${esc(race().name)} · ${esc(c.name)}${md?" · "+esc(md.name):""}${mi?" · "+esc(mi.name):""}${dp?" · "+esc(dp.name):""}</div></div>`;
+  h+=sheetCard(cardDetail("faction",S.card));
+  const tk=Object.keys(S.tact).filter(id=>tactById(id)&&S.tact[id]>0);
+  tk.forEach(id=>{
+    const d=cardDetail("tact",id);if(!d)return;
+    if(S.tact[id]>1)d.title+=` <span class="incount">×${S.tact[id]}</span>`;
+    h+=sheetCard(d);
+  });
+  S.units.forEach((e,i)=>{h+=sheetCard(cardDetail("unit",e.id,i))});
+  if(mi)h+=sheetCard(cardDetail("mission",mi.id));
+  if(dp)h+=sheetCard(cardDetail("deploy",dp.id));
+  return h;
+}
+function exportPdf(){
+  const T=totals();
+  $("printSheet").innerHTML=pdfSheetHtml(T);
+  document.body.classList.add("pdfing");
+  const done=()=>{document.body.classList.remove("pdfing");window.removeEventListener("afterprint",done)};
+  window.addEventListener("afterprint",done);
+  setTimeout(()=>window.print(),50);
+}
+function openCard(kind,id,ui){
+  const d=cardDetail(kind,id,ui);if(!d)return;
+  const m=$("modal");
+  m.className="modal"+d.sc;
+  m.innerHTML=`<div class="modal-head"><div><div class="kind">${esc(d.kindTxt)}</div><h3 id="mTitle">${d.title}</h3></div><button data-close aria-label="Close">✕</button></div>${d.body}`;
   lastFocus=document.activeElement;
   $("overlay").classList.add("open");
   m.querySelector("[data-close]").focus();
@@ -1289,7 +1512,42 @@ document.addEventListener("click",ev=>{
     if(n)S.tact[tc.id]=n;else delete S.tact[tc.id];
     render();return;
   }
-  if(d.act==="print"){window.print();return}
+  if(d.act==="pdf"){exportPdf();return}
+  if(d.act==="saveArmy"){
+    const id=libSave(LIB_ARMY,packArmy(),"Unnamed list");
+    if(id){S.libArmy=id;S.fileMsg="Army list saved."}render();return;
+  }
+  if(d.act==="dlArmy"){downloadJson(packArmy(),fileBase()+"-army.json");S.fileMsg="Army JSON downloaded.";render();return}
+  if(d.act==="upArmy"){const f=$("exportPanel").querySelector('[data-ch="fileArmy"]');if(f)f.click();return}
+  if(d.act==="loadArmy"){
+    const pack=libLoad(LIB_ARMY,S.libArmy);if(!pack){alert("Select a saved army list first.");return}
+    if(!confirm("Load this army list? The current roster will be replaced."))return;
+    const why=applyArmy(pack);if(why){alert(why);return}
+    S.fileMsg="Army list loaded.";render();return;
+  }
+  if(d.act==="delArmy"){
+    if(!S.libArmy){alert("Select a saved army list first.");return}
+    if(!confirm("Delete this saved army list?"))return;
+    libDel(LIB_ARMY,S.libArmy);S.libArmy="";S.fileMsg="Saved army list deleted.";render();return;
+  }
+  if(d.act==="saveReg"){
+    if(!isCampaign()||!S.camp)return;
+    const id=libSave(LIB_REG,packRegister(),race().name+" Register");
+    if(id){S.libReg=id;S.fileMsg="Register saved."}render();return;
+  }
+  if(d.act==="dlReg"){const p=packRegister();if(!p)return;downloadJson(p,fileBase()+"-register.json");S.fileMsg="Register JSON downloaded.";render();return}
+  if(d.act==="upReg"){const f=$("exportPanel").querySelector('[data-ch="fileReg"]');if(f)f.click();return}
+  if(d.act==="loadReg"){
+    const pack=libLoad(LIB_REG,S.libReg);if(!pack){alert("Select a saved Register first.");return}
+    if(!confirm("Load this Register? Credits, owned cards and units will be replaced. The game roster is trimmed to match."))return;
+    const why=applyRegister(pack);if(why){alert(why);return}
+    S.fileMsg="Register loaded.";render();return;
+  }
+  if(d.act==="delReg"){
+    if(!S.libReg){alert("Select a saved Register first.");return}
+    if(!confirm("Delete this saved Register?"))return;
+    libDel(LIB_REG,S.libReg);S.libReg="";S.fileMsg="Saved Register deleted.";render();return;
+  }
   if(d.act==="clear"){
     if(confirm(isCampaign()?"Clear the game roster? The Register is kept.":"Clear all units and tactical cards from this list?")){S.units=[];S.tact={};render()}
     return;
@@ -1330,6 +1588,20 @@ document.addEventListener("change",ev=>{
     S.play=v;
     if(v==="campaign"){if(!colOk(S.colL))S.colL="units";if(!colOk(S.colR))S.colR="army";if(!regColOk(S.regL))S.regL="regFac";if(!regColOk(S.regR))S.regR="regArmy"}
     else{if(!colOk(S.colL))S.colL="units";if(!colOk(S.colR))S.colR="army"}
+  }
+  else if(d.ch==="libArmy"){S.libArmy=v;return}
+  else if(d.ch==="libReg"){S.libReg=v;return}
+  else if(d.ch==="fileArmy"||d.ch==="fileReg"){
+    const f=t.files&&t.files[0];t.value="";
+    if(!f)return;
+    const reg=d.ch==="fileReg";
+    readJsonFile(f,(pack,err)=>{
+      const why=err||(reg?applyRegister(pack):applyArmy(pack));
+      if(why){alert(why);return}
+      S.fileMsg=reg?"Register loaded from JSON.":"Army list loaded from JSON.";
+      render();
+    });
+    return;
   }
   render();
 });
