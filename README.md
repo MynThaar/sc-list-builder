@@ -4,6 +4,15 @@ Browser list builder for StarCraft: The Miniatures Game, including **Trouble in 
 
 Open [sc-list-builder-v12.html](sc-list-builder-v12.html) (or this repo’s GitHub Pages URL). Everything runs in the browser. Lists and campaign Registers are stored in that browser’s local storage, so each person has their own data.
 
+# Changelog
+- Save and Load files stored on browser
+- export browser files as .JSON
+- Separate file saving for Campaign Registers and Game Rosters (When Loading a Campaign Game Roster the Campaign Register will need to be loaded first)
+- Export as PDF with Full rules in nice graphic layout
+
+
+
+
 ## Files
 
 - `sc-list-builder-v12.html` — the app
