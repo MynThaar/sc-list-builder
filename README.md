@@ -2,11 +2,11 @@
 
 Browser list builder for StarCraft: The Miniatures Game, including **Trouble in the Koprulu Sector** campaign mode.
 
-Open [sc-list-builder-v11.html](sc-list-builder-v11.html) (or this repo’s GitHub Pages URL). Everything runs in the browser. Lists and campaign Registers are stored in that browser’s local storage, so each person has their own data.
+Open [sc-list-builder-v12.html](sc-list-builder-v12.html) (or this repo’s GitHub Pages URL). Everything runs in the browser. Lists and campaign Registers are stored in that browser’s local storage, so each person has their own data.
 
 ## Files
 
-- `sc-list-builder-v11.html` — the app
+- `sc-list-builder-v12.html` — the app
 - `sc-data.js` — loader and game settings
 - `protoss.js` / `zerg.js` / `terran.js` — faction data
 - `missions.js` — missions and deployments

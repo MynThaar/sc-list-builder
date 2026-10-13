@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>StarCraft List Builder v11</title>
+<title>StarCraft List Builder v12</title>
 <style>
   :root {
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
@@ -216,7 +216,7 @@
 </head>
 <body>
 <div class="stick">
-  <div class="titlebar"><h1 id="appTitle">StarCraft List Builder</h1><span class="ver" id="verline">v11 · tap any card name to see its details</span></div>
+  <div class="titlebar"><h1 id="appTitle">StarCraft List Builder</h1><span class="ver" id="verline">v12 · tap any card name to see its details</span></div>
   <div class="panel" id="totals"></div>
 </div>
 <div id="err"></div>
@@ -282,7 +282,7 @@ const STATS=typeof STAT_ORDER!=="undefined"?STAT_ORDER:["SHLD","SPD","EVA","ARM"
 const WCOLS=typeof WEAPON_COLS!=="undefined"?WEAPON_COLS:[["rng","RNG"],["tgt","TGT"],["roa","ROA"],["hit","HIT"],["surge","SURGE"],["sdie","S.DIE"],["dmg","DMG"],["kw","KEYWORDS"]];
 const ABILITY_TYPES=["Active","Reaction","Passive"];
 const DEFMAX=DATA.defaultMax||3;
-const KEY="sc-list-builder-v10"; // same key as v10, so a saved list can carry over
+const KEY="sc-list-builder-v10"; // same key as earlier versions, so a saved list can carry over
 const TACT=Array.isArray(DATA.tactical)?DATA.tactical:[];
 const MODES=typeof GAME_MODES!=="undefined"?GAME_MODES:{skirmish:{id:"skirmish",name:"Skirmish",table:'36" × 36"',minerals:1000},standard:{id:"standard",name:"Standard",table:'36" × 54"',minerals:2000}};
 const MISSIONS=Array.isArray(DATA.missions)?DATA.missions:[];
@@ -1149,7 +1149,7 @@ function render(){
   document.body.classList.toggle("campaign",isCampaign());
   const title=$("appTitle"),ver=$("verline");
   if(title)title.textContent=isCampaign()?"StarCraft Campaign":"StarCraft List Builder";
-  if(ver)ver.textContent=isCampaign()?"Trouble in the Koprulu Sector · tap any card name to see its details":"v11 · tap any card name to see its details";
+  if(ver)ver.textContent=isCampaign()?"Trouble in the Koprulu Sector · tap any card name to see its details":"v12 · tap any card name to see its details";
   renderSetup();renderCampaign(T);renderRegCols();renderTotals(T,W);renderSlots(T);renderCols(T);renderExport(T);
   save();
 }
