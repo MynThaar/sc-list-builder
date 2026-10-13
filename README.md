@@ -15,7 +15,7 @@ Open [sc-list-builder-v12.5.html](sc-list-builder-v12.5.html) (or this repo’s 
 
 ## Files
 
-- `sc-list-builder-v12.html` — the app
+- `sc-list-builder-v12.5.html` — the app
 - `sc-data.js` — loader and game settings
 - `protoss.js` / `zerg.js` / `terran.js` — faction data
 - `missions.js` — missions and deployments
