@@ -35,7 +35,7 @@ addCards("zerg", {
 // cards:["swarm"] = only usable with that faction card. unique:true = max 1.
 // creep:true = Creep Card; Zerg Creep on the faction card requires exactly one.
 addTactical([
-  {id:"zt_accelcreep", name:"Accelerating Creep", gas:0, races:["zerg"], cards:["swarm"], unique:true, creep:true,
+  {id:"zt_accelcreep", name:"Accelerating Creep", gas:0, races:["zerg"], unique:true, creep:true,
     abilities:[
       {name:"Speed on Creep", type:"Passive", phase:"Any Phase",
         text:"If the active Friendly Zerg Unit is ON CREEP, increase its Speed characteristic by 1."},
@@ -107,7 +107,7 @@ addTactical([
       {name:"Pneumatized Carapace", type:"Reaction", phase:"Assault Phase",
         text:"Use after a Friendly Unit rolls a D6 for Charge Distance. Roll an additional D6 and use the higher result to calculate the total Charge Distance."}
     ]},
-  {id:"zt_reactive", name:"Reactive Creep", gas:10, races:["zerg"], unique:true, creep:true,
+  {id:"zt_reactive", name:"Reactive Creep", gas:10, races:["zerg"], cards:["zagara"], unique:true, creep:true,
     abilities:[
       {name:"Reactive Tissue", type:"Passive", phase:"Any Phase",
         text:"While a Friendly Zerg Unit is ON CREEP, it gains DODGE (1) against any attacks targeting it."},

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>StarCraft List Builder v12.5</title>
+<title>StarCraft List Builder v12.6</title>
 <style>
   :root {
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
@@ -229,7 +229,7 @@
 </head>
 <body>
 <div class="stick">
-  <div class="titlebar"><h1 id="appTitle">StarCraft List Builder</h1><span class="ver" id="verline">v12.5 · tap any card name to see its details</span></div>
+  <div class="titlebar"><h1 id="appTitle">StarCraft List Builder</h1><span class="ver" id="verline">v12.6 · tap any card name to see its details</span></div>
   <div class="panel" id="totals"></div>
 </div>
 <div id="err"></div>
@@ -616,11 +616,11 @@ function downloadJson(obj,name){
   setTimeout(()=>URL.revokeObjectURL(a.href),800);
 }
 function packArmy(){
-  return {kind:"army",v:12.5,saved:new Date().toISOString(),name:S.name||"Unnamed list",play:S.play||"battle",race:S.race,card:S.card,tact:S.tact,units:S.units,minLim:S.minLim,mode:S.mode,mission:S.mission,deploy:S.deploy};
+  return {kind:"army",v:12.6,saved:new Date().toISOString(),name:S.name||"Unnamed list",play:S.play||"battle",race:S.race,card:S.card,tact:S.tact,units:S.units,minLim:S.minLim,mode:S.mode,mission:S.mission,deploy:S.deploy};
 }
 function packRegister(){
   if(!S.camp)return null;
-  return {kind:"register",v:12.5,saved:new Date().toISOString(),name:S.name||(race().name+" Register"),race:S.race,camp:JSON.parse(JSON.stringify(S.camp))};
+  return {kind:"register",v:12.6,saved:new Date().toISOString(),name:S.name||(race().name+" Register"),race:S.race,camp:JSON.parse(JSON.stringify(S.camp))};
 }
 function pruneGameToRegister(){
   if(!isCampaign()||!S.camp)return;
@@ -770,14 +770,14 @@ function totals(){
     const u=unitById(e.id);if(!u)continue;
     const os=options(u),o=os[e.opt]||os[0];
     min+=o.cost||0;sup+=o.supply||0;
-    if(u.slot!=="Summons"&&!(u.slot==="Structure"&&!(o.cost)))used[u.slot]=(used[u.slot]||0)+1;
+    if(u.slot!=="Summons"&&!(u.slot==="Structure"&&!(o.cost)))used[u.slot]=(used[u.slot]||0)+(o.supply||0);
     for(const up of selectedUps(e,u)) min+=upgPts(up,e);
   }
   return {slots,used,res,gas,min,sup};
 }
 function warnings(T){
   const W=[];
-  for(const s of slotGroups()){const u=T.used[s]||0,a=T.slots[s]||0;if(u>a)W.push(`${s}: ${u} unit${u===1?"":"s"} but only ${a} slot${a===1?"":"s"}.`)}
+  for(const s of slotGroups()){const u=T.used[s]||0,a=T.slots[s]||0;if(u>a)W.push(`${s}: ${u} supply but only ${a} slot${a===1?"":"s"}.`)}
   const seen=new Set();
   for(const e of S.units){
     const u=unitById(e.id);if(!u||seen.has(u.id))continue;seen.add(u.id);
@@ -1278,7 +1278,7 @@ function textList(T){
   for(const s of slotGroups()){
     const es=S.units.filter(e=>{const u=unitById(e.id);return u&&u.slot===s});
     if(!es.length)continue;
-    L.push("",s==="Summons"||s==="Structure"&&!(T.slots[s]||0)?`${s}:`:`${s} (${es.length}/${T.slots[s]||0}):`);
+    L.push("",s==="Summons"||s==="Structure"&&!(T.slots[s]||0)?`${s}:`:`${s} (${T.used[s]||0}/${T.slots[s]||0}):`);
     es.forEach(e=>{
       const u=unitById(e.id),os=options(u),o=os[e.opt]||os[0];
       const extra=selectedUps(e,u).map(up=>{
@@ -1340,7 +1340,7 @@ function render(){
   document.body.classList.toggle("campaign",isCampaign());
   const title=$("appTitle"),ver=$("verline");
   if(title)title.textContent=isCampaign()?"StarCraft Campaign":"StarCraft List Builder";
-  if(ver)ver.textContent=isCampaign()?"Trouble in the Koprulu Sector · tap any card name to see its details":"v12.5 · tap any card name to see its details";
+  if(ver)ver.textContent=isCampaign()?"Trouble in the Koprulu Sector · tap any card name to see its details":"v12.6 · tap any card name to see its details";
   renderSetup();renderCampaign(T);renderRegCols();renderTotals(T,W);renderSlots(T);renderCols(T);renderExport(T);
   save();
 }
@@ -1389,7 +1389,7 @@ function sheetCard(d){
 }
 function pdfSheetHtml(T){
   const c=card(),md=MODES[S.mode],mi=missionById(S.mission),dp=deployById(S.deploy);
-  let h=`<div class="titlebar"><h1>${esc(S.name||"Unnamed list")}</h1><span class="ver">${isCampaign()?"Campaign · Trouble in the Koprulu Sector":"Single Battle"} · v12.5</span></div>
+  let h=`<div class="titlebar"><h1>${esc(S.name||"Unnamed list")}</h1><span class="ver">${isCampaign()?"Campaign · Trouble in the Koprulu Sector":"Single Battle"} · v12.6</span></div>
     <div class="panel"><div class="totals">
       <span class="min">Minerals: ${T.min}${S.minLim?" / "+S.minLim:""}</span>
       <span class="gas">Vespene: ${T.gas}${S.gasLim?" / "+S.gasLim:""}</span>

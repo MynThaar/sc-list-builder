@@ -1,10 +1,12 @@
-# StarCraft List Builder v12.5
+# StarCraft List Builder v12.6
 
 Browser list builder for StarCraft: The Miniatures Game, including **Trouble in the Koprulu Sector** campaign mode.
 
-Open [sc-list-builder-v12.5.html](sc-list-builder-v12.5.html) (or this repo’s GitHub Pages URL). Everything runs in the browser. Lists and campaign Registers are stored in that browser’s local storage, so each person has their own data.
+Open [sc-list-builder-v12.6.html](sc-list-builder-v12.6.html) (or this repo’s GitHub Pages URL). Everything runs in the browser. Lists and campaign Registers are stored in that browser’s local storage, so each person has their own data.
 
 # Changelog
+- Units fill as many rank slots as their Supply (including squad-size options)
+- Zerg Creep factions: Accelerating unrestricted, Reactive is Zagara’s Swarm, Malignant is Kerrigan’s Swarm
 - Save and Load files stored on browser
 - export browser files as .JSON
 - Separate file saving for Campaign Registers and Game Rosters (When Loading a Campaign Game Roster the Campaign Register will need to be loaded first)
@@ -15,7 +17,7 @@ Open [sc-list-builder-v12.5.html](sc-list-builder-v12.5.html) (or this repo’s 
 
 ## Files
 
-- `sc-list-builder-v12.5.html` — the app
+- `sc-list-builder-v12.6.html` — the app
 - `sc-data.js` — loader and game settings
 - `protoss.js` / `zerg.js` / `terran.js` — faction data
 - `missions.js` — missions and deployments
