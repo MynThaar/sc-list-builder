@@ -1,6 +1,6 @@
 // ===================================================================
 //  sc-data.js - SETTINGS + LOADER for the list builder.
-//  Keep every file in the SAME FOLDER as sc-list-builder-v12.6.html.
+//  Keep every file in the SAME FOLDER as index.html.
 //  One data file per faction (race + cards + tactical + units), plus missions.js.
 //  To add a new data file: create it, then add its name to DATA_FILES.
 //  Every data file must end with:  fileLoaded();

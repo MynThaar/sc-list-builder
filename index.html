@@ -2,11 +2,1596 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<title>StarCraft List Builder</title>
-<meta http-equiv="refresh" content="0;url=sc-list-builder-v12.6.html">
-<link rel="canonical" href="sc-list-builder-v12.6.html">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StarCraft List Builder v12.6</title>
+<style>
+  :root {
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --min:#58a6ff; --gas:#3fb950; --res:#c084fc; --err:#f85149; --warn:#d29922;
+    --c-core:#7dd3fc; --c-elite:#ef4444; --c-support:#22c55e; --c-hero:#a855f7; --c-structure:#fb923c; --c-summons:#94a3b8;
+    --c-unique:#facc15; --upg:#39ff14; --cred:#f5c542;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0 auto; font-family:system-ui,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); padding:0 12px 12px; max-width:1280px; }
+
+  /* sticky title + totals */
+  .stick { position:sticky; top:0; z-index:40; background:var(--bg); padding-top:8px; }
+  .stick .titlebar { margin-bottom:6px; }
+  .stick #totals { margin-bottom:8px; padding:6px 10px; }
+  .stick #totals > h2 { display:none; }
+
+  /* title bar */
+  .titlebar { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding:12px 14px; margin-bottom:12px;
+    background:linear-gradient(90deg,#1b2a44,var(--panel)); border:1px solid var(--line); border-left:6px solid var(--min); border-radius:8px; }
+  .titlebar h1 { font-size:1.3rem; margin:0; letter-spacing:.05em; text-transform:uppercase; }
+  .ver { color:var(--muted); font-size:.85rem; }
+
+  /* panels with heading bars */
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:0 12px 12px; margin-bottom:12px; overflow:hidden; }
+  .panel > h2 { margin:0 -12px 12px; padding:10px 12px; background:var(--panel2); border-bottom:1px solid var(--line);
+    border-left:4px solid var(--min); font-size:.95rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text); }
+
+  /* slot-type group bars */
+  .grouphead { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; margin:14px 0 4px;
+    background:color-mix(in srgb, var(--sc, var(--muted)) 18%, var(--bg)); border-left:6px solid var(--sc, var(--muted)); border-radius:4px;
+    color:var(--sc, var(--muted)); font-weight:bold; text-transform:uppercase; letter-spacing:.06em; }
+  .panel > h2 + .grouphead { margin-top:0; }
+  .colbody > .grouphead:first-child, .colbody > .faceline, .colbody > .subhead:first-child, .colbody > .nodata:first-child { margin-top:0; }
+  .grouphead .count { color:var(--text); }
+  .grouphead .count.over { color:var(--err); }
+
+  /* form controls */
+  label { display:flex; flex-direction:column; gap:4px; color:var(--muted); font-size:.85rem; }
+  select, input[type=number], input[type=text], button { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px; font-size:1rem; font-family:inherit; }
+  .limshow { min-width:110px; min-height:38px; display:flex; align-items:center; font-size:1rem; }
+  .limshow b { color:var(--gas); font-size:1.15rem; font-weight:700; }
+  .limshow b.cred { color:var(--cred); }
+  .limshow .none { color:var(--muted); font-weight:normal; font-size:1rem; }
+  button { cursor:pointer; } button:hover { border-color:var(--min); }
+  button:disabled { opacity:.35; cursor:not-allowed; }
+  button.del { border-color:#5a2a32; background:#2a1519; }
+  button.del:hover { border-color:var(--err); }
+  button.upg { border-color:var(--upg); background:#14532d; color:var(--upg); font-weight:bold; letter-spacing:.04em; text-transform:uppercase; }
+  button.upg:hover { border-color:#bbff99; background:#166534; }
+  button.upg.on { background:var(--upg); color:#052e16; }
+  .qty button.upg { min-width:auto; padding:6px 10px; font-size:.8rem; }
+  .upgline { color:var(--upg); font-size:.8rem; margin-top:2px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+
+  /* list rows */
+  .item { display:flex; justify-content:space-between; align-items:center; padding:8px 0 8px 10px; border-bottom:1px solid var(--line); gap:8px; }
+  .item:last-child { border-bottom:0; }
+  .unitrow { border-bottom:1px solid var(--line); }
+  .unitrow:last-child { border-bottom:0; }
+  .unitrow .item { border-bottom:0; padding-left:6px; }
+  .colbody .item { border-left:3px solid var(--sc, var(--line)); margin-left:2px; }
+  .chev { flex-shrink:0; width:28px; height:28px; padding:0; font-size:10px; line-height:1; color:var(--muted); align-self:flex-start; margin-top:2px; }
+  .chev[aria-expanded="true"] { color:var(--min); }
+  .statpeek { margin:0 4px 8px 38px; }
+  .item.off { opacity:.55; }
+  .name { flex:1; min-width:0; } .meta { color:var(--muted); font-size:.8rem; }
+  .why { color:var(--warn); font-size:.8rem; }
+  .cardlink { cursor:pointer; font-weight:600; text-decoration:underline dotted var(--muted); text-underline-offset:3px; }
+  .cardlink:hover, .cardlink:focus { color:var(--min); outline:none; }
+  .qty { display:flex; align-items:center; gap:8px; min-width:110px; justify-content:flex-end; }
+  .qty button { min-width:34px; height:34px; padding:0 10px; }
+  .qty select { font-size:.85rem; padding:6px; }
+  .qty .gas { font-weight:bold; white-space:nowrap; font-size:.95rem; }
+  .adds { display:grid; grid-template-columns:3.4em minmax(7.2em,auto); justify-content:end; align-items:center; gap:4px 8px; }
+  .adds button { font-size:.85rem; padding:6px 10px; white-space:nowrap; width:100%; }
+  .addrow { display:contents; }
+  .addrow .min { font-weight:bold; font-size:.95rem; text-align:right; white-space:nowrap; }
+  .incount { color:var(--min); font-weight:bold; }
+  .subhead { margin:14px 0 4px; color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; }
+  .faceline { margin:10px 0 12px; padding:10px 12px; background:var(--panel2); border:1px solid var(--line);
+    border-left:6px solid var(--res); border-radius:6px; }
+  .faceline .kind { color:var(--res); font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; font-weight:bold; }
+  .faceline .cardlink { font-size:1.2rem; }
+
+  /* totals */
+  .totals { display:flex; gap:12px 16px; flex-wrap:wrap; font-size:.95rem; align-items:baseline; }
+  .min { color:var(--min); } .gas { color:var(--gas); } .res { color:var(--res); } .cred { color:var(--cred); font-weight:700; }
+  .bar.c > div { background:var(--cred); }
+  .gmsel { font-weight:700; min-width:160px; }
+  .gmsel.play-campaign { color:var(--cred); border-color:var(--cred); }
+  input.credin { color:var(--cred); border-color:var(--cred); font-weight:700; width:110px; }
+  .dash { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+  .dash .tile { background:var(--bg); border:1px solid var(--line); border-left:4px solid var(--cred); border-radius:6px; padding:10px 12px; }
+  .dash .tile small { color:var(--cred); font-weight:bold; text-transform:uppercase; letter-spacing:.06em; font-size:.75rem; }
+  .dash .tile b { display:block; font-size:1.45rem; color:var(--cred); margin-top:4px; }
+  .dash .tile .sub { color:var(--muted); font-size:.8rem; margin-top:2px; }
+  body.campaign { --bg:#120e08; --panel:#1c1710; --panel2:#261f16; --line:#4a3f2a; max-width:1400px; }
+  body.campaign .titlebar { background:linear-gradient(90deg,#3a2e12,var(--panel)); border-left-color:var(--cred); }
+  body.campaign .panel > h2, body.campaign .colhead { border-left-color:var(--cred); }
+  body.campaign .colhead button.on { background:var(--cred); color:#1a1408; border-color:var(--cred); }
+  body.campaign button:hover { border-color:var(--cred); }
+  body.campaign .cardlink:hover, body.campaign .cardlink:focus { color:var(--cred); }
+  .over { color:var(--err); font-weight:bold; }
+  .totbars { display:flex; gap:8px; margin-top:4px; }
+  .totbars .bar { flex:1; margin-top:0; }
+  .bar { height:4px; background:var(--bg); border-radius:4px; overflow:hidden; margin-top:6px; }
+  .bar > div { height:100%; background:var(--min); } .bar.g > div { background:var(--gas); }
+  .bar.x > div { background:var(--err); }
+  .msg { margin:1px 0; font-size:.8rem; }
+  .msg.err { color:var(--err); } .msg.warn { color:var(--warn); } .msg.ok { color:var(--gas); }
+  .msgs { margin-top:4px; }
+
+  /* supply slot boxes */
+  .slots { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+  .slot { background:var(--bg); border:1px solid var(--line); border-left:5px solid var(--sc, var(--line)); border-radius:6px; padding:8px; text-align:center; }
+  .slot small { color:var(--sc, var(--muted)); font-weight:bold; text-transform:uppercase; letter-spacing:.05em; }
+  .slot b { display:block; font-size:1.2rem; }
+  .slot.full { box-shadow:inset 0 0 0 1px var(--warn); }
+  .slot.bad { box-shadow:inset 0 0 0 2px var(--err); }
+
+  /* tags */
+  .tag { display:inline-block; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:0 8px; font-size:.75rem; margin:2px 4px 2px 0; color:var(--text); }
+  .tag.kw { color:var(--muted); }
+  .tag.fac { color:#f0abfc; border-color:#a21caf; }
+  .tag.gas { color:var(--gas); border-color:var(--gas); }
+  .tag.upg { color:var(--upg); border-color:var(--upg); font-weight:bold; }
+  .tag.pe { color:var(--res); border-color:var(--res); background:color-mix(in srgb, var(--res) 12%, var(--bg)); font-weight:bold; }
+  .tag.cred { color:var(--cred); border-color:var(--cred); font-weight:bold; }
+  .s-Core    { --sc:var(--c-core); }
+  .s-Elite   { --sc:var(--c-elite); }
+  .s-Support { --sc:var(--c-support); }
+  .s-Hero    { --sc:var(--c-hero); }
+  .s-Structure { --sc:var(--c-structure); }
+  .s-Summons { --sc:var(--c-summons); }
+  .tag.st { color:var(--sc, var(--text)); border-color:var(--sc, var(--line)); font-weight:bold; }
+  .tag.unique { color:var(--c-unique); border-color:var(--c-unique); font-weight:bold; }
+  .tag.ab { font-weight:bold; text-transform:uppercase; letter-spacing:.04em; padding:1px 8px; color:var(--ac); border-color:var(--ac); background:color-mix(in srgb, var(--ac) 15%, var(--bg)); }
+  .tag.ab.none { --ac:var(--muted); border-style:dashed; background:var(--bg); text-transform:none; }
+  .m-skirmish { --mc:#f5c542; }
+  .m-standard { --mc:#58a6ff; }
+  .modesel { font-weight:700; min-width:160px; }
+  .modesel.m-skirmish { color:var(--mc); border-color:var(--mc); }
+  .modesel.m-standard { color:var(--mc); border-color:var(--mc); }
+  .item.pick { cursor:pointer; }
+  .item.sel { background:color-mix(in srgb, var(--mc, var(--min)) 16%, transparent); }
+  .item .picked { color:var(--mc, var(--min)); font-weight:bold; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; }
+  .modal.m-skirmish, .modal.m-standard { --sc: var(--mc); }
+  .modal p { margin:0 0 8px; line-height:1.4; }
+  .modal p:last-child { margin-bottom:0; }
+  .modal .rules ul { margin:4px 0 8px; padding-left:1.25em; }
+  .modal .rules li { margin:3px 0; }
+  .t-Active   { --ac:#fb923c; }
+  .t-Reaction { --ac:#22d3ee; }
+  .t-Passive  { --ac:#86efac; }
+
+  textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px; min-height:140px; font-family:monospace; }
+  #err { display:none; background:#3a1f24; border:1px solid var(--err); padding:12px; margin-bottom:12px; border-radius:8px; }
+  .filesel { min-width:min(100%,280px); }
+  .sheetcard { background:var(--panel); border:1px solid var(--line); border-top:5px solid var(--sc, var(--min)); border-radius:10px; padding:16px; margin:0 0 14px; break-inside:avoid; page-break-inside:avoid; }
+  .sheetcard h3 { margin:0 0 8px; font-size:1.3rem; }
+  .sheetcard .kind { color:var(--sc, var(--muted)); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; font-weight:bold; }
+  #printSheet { display:none; }
+  body.pdfing { max-width:none; padding:0; }
+  body.pdfing .stick, body.pdfing #app, body.pdfing #err, body.pdfing #overlay { display:none !important; }
+  body.pdfing #printSheet { display:block; padding:12px; }
+  body.pdfing, body.pdfing #printSheet {
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    background:var(--bg); color:var(--text);
+  }
+
+  /* card detail viewer */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:flex-start; justify-content:center; padding:20px 12px; overflow-y:auto; z-index:50; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--panel); border:1px solid var(--line); border-top:5px solid var(--sc, var(--min)); border-radius:10px; width:100%; max-width:620px; padding:16px; }
+  .modal.map { max-width:min(960px,96vw); }
+  .mapimg { display:block; width:100%; height:auto; margin-top:10px; border-radius:8px; background:var(--bg); border:1px solid var(--line); }
+  .modal-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+  .modal-head button { min-width:38px; }
+  .modal h3 { margin:0 0 4px; font-size:1.3rem; }
+  .modal .kind { color:var(--sc, var(--muted)); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; font-weight:bold; }
+  .modal .info { margin:10px 0; font-style:italic; color:var(--muted); }
+  .stats { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+  .stat { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:4px 10px; text-align:center; font-size:.8rem; color:var(--muted); min-width:52px; }
+  .stat b { display:block; color:var(--text); font-size:1.1rem; }
+  .phase { margin-top:14px; }
+  .phase h4 { margin:0 0 6px; padding:5px 8px; background:var(--bg); border-left:4px solid var(--sc, var(--min)); border-radius:4px; font-size:.85rem; text-transform:uppercase; letter-spacing:.05em; }
+  .phase.upgphase h4 { color:var(--upg); border-left-color:var(--upg); background:color-mix(in srgb, var(--upg) 10%, var(--bg)); }
+  .ability { padding:6px 8px; border-bottom:1px solid var(--line); }
+  .ability:last-child { border-bottom:0; }
+  .ability .abhead { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:2px; }
+  .ability b { font-size:1rem; }
+  .nodata { margin-top:14px; padding:10px; border:1px dashed var(--line); border-radius:6px; color:var(--muted); font-size:.9rem; }
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.8rem; margin:6px 0; }
+  th, td { border:1px solid var(--line); padding:4px 6px; text-align:center; }
+  th { background:var(--panel2); color:var(--muted); font-weight:600; }
+  td.l { text-align:left; }
+
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; margin-bottom:12px; }
+  .cols[hidden] { display:none !important; }
+  .col { min-height:240px; }
+  .colhead { display:flex; flex-wrap:wrap; gap:4px; margin:0 -12px 10px; padding:6px; background:var(--panel2); border-bottom:1px solid var(--line); border-left:4px solid var(--min); }
+  .colhead button { flex:1 1 5.5em; min-width:0; padding:6px 8px; font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .colhead button.on { background:var(--min); color:#0d1117; border-color:var(--min); }
+  @media (max-width:860px) {
+    .cols { grid-template-columns:1fr; }
+  }
+  @media (max-width:520px) {
+    .item { flex-wrap:wrap; }
+    .adds { width:100%; grid-template-columns:3.4em 1fr; }
+  }
+  @media print {
+    .noprint, .overlay, .stick, #app, #err { display:none !important; }
+    body.pdfing #printSheet { display:block; }
+    body, body.pdfing, body.pdfing #printSheet {
+      background:var(--bg) !important; color:var(--text) !important;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    }
+    .qty button, .chev { display:none; }
+    @page { margin:12mm; }
+  }
+</style>
 </head>
 <body>
-<p><a href="sc-list-builder-v12.6.html">Open the StarCraft List Builder</a></p>
+<div class="stick">
+  <div class="titlebar"><h1 id="appTitle">StarCraft List Builder</h1><span class="ver" id="verline">v12.6 · tap any card name to see its details</span></div>
+  <div class="panel" id="totals"></div>
+</div>
+<div id="err"></div>
+
+<div id="app">
+  <div class="panel noprint" id="setup"></div>
+  <div class="panel noprint" id="campaignPanel" hidden></div>
+  <div class="cols noprint" id="regCols" hidden>
+    <div class="panel col" id="regLWrap">
+      <div class="colhead" id="regLHead" role="tablist" aria-label="Register left column"></div>
+      <div class="colbody" id="regL"></div>
+    </div>
+    <div class="panel col" id="regRWrap">
+      <div class="colhead" id="regRHead" role="tablist" aria-label="Register right column"></div>
+      <div class="colbody" id="regR"></div>
+    </div>
+  </div>
+  <div class="panel" id="slotsPanel"></div>
+  <div class="cols">
+    <div class="panel col" id="colLWrap">
+      <div class="colhead noprint" id="colLHead" role="tablist" aria-label="Left column"></div>
+      <div class="colbody" id="colL"></div>
+    </div>
+    <div class="panel col" id="colRWrap">
+      <div class="colhead noprint" id="colRHead" role="tablist" aria-label="Right column"></div>
+      <div class="colbody" id="colR"></div>
+    </div>
+  </div>
+  <div class="panel noprint" id="exportPanel"></div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"></div></div>
+<div id="printSheet"></div>
+
+<script src="sc-data.js"></script>
+<script>
+window.addEventListener("load", function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+if(typeof DATA==="undefined"||!DATA||!DATA.races||!Object.keys(DATA.races).length){
+  $("app").style.display="none";
+  const e=$("err");e.style.display="block";
+  e.innerHTML="<b>sc-data.js didn't load.</b><br>Check that it is in the same folder as this file, is named exactly <code>sc-data.js</code>, and is complete (not cut off). Your browser console (F12) shows the exact error.";
+  return;
+}
+
+const PH=(typeof PHASES!=="undefined"&&Array.isArray(PHASES))?PHASES:["Any Phase","Movement Phase","Assault Phase","Combat Phase"];
+const SLOTS=typeof SLOT_TYPES!=="undefined"?SLOT_TYPES:["Hero","Core","Elite","Support","Structure","Summons"];
+const COL_BASE=[{id:"tact",name:"Tactical Cards",short:"Tactical"},{id:"units",name:"Units",short:"Units"},{id:"army",name:"Roster",short:"Roster"},{id:"mission",name:"Mission & Deploy",short:"Mission"}];
+const REG_VIEWS=[{id:"regFac",name:"Faction Cards",short:"Faction"},{id:"regTact",name:"Tactical Cards",short:"Tactical"},{id:"regUnits",name:"Units",short:"Units"},{id:"regArmy",name:"Register",short:"Register"}];
+function colViews(){return COL_BASE}
+function colOk(id){return COL_BASE.some(v=>v.id===id)}
+function regColOk(id){return REG_VIEWS.some(v=>v.id===id)}
+const PLAY={battle:{id:"battle",name:"Single Battle"},campaign:{id:"campaign",name:"Campaign"}};
+const playOk=id=>!!PLAY[id];
+const isCampaign=()=>S.play==="campaign";
+const STARTER={terran:"armed",zerg:"swarm",protoss:"daelaam"};
+const CAMP_UNIT=1,CAMP_TACT=2,CAMP_FAC=1,CAMP_BUMP=1,CAMP_START=15,CAMP_MAX0=750,CAMP_STEP=250;
+const starterCard=()=>STARTER[S.race]||Object.keys(race().cards)[0];
+const kTxt=n=>(+n||0)+"k";
+const STATS=typeof STAT_ORDER!=="undefined"?STAT_ORDER:["SHLD","SPD","EVA","ARM","HP","SIZE"];
+const WCOLS=typeof WEAPON_COLS!=="undefined"?WEAPON_COLS:[["rng","RNG"],["tgt","TGT"],["roa","ROA"],["hit","HIT"],["surge","SURGE"],["sdie","S.DIE"],["dmg","DMG"],["kw","KEYWORDS"]];
+const ABILITY_TYPES=["Active","Reaction","Passive"];
+const DEFMAX=DATA.defaultMax||3;
+const KEY="sc-list-builder-v10"; // same key as earlier versions, so a saved list can carry over
+const LIB_ARMY="sc-list-builder-library-armies";
+const LIB_REG="sc-list-builder-library-registers";
+const TACT=Array.isArray(DATA.tactical)?DATA.tactical:[];
+const MODES=typeof GAME_MODES!=="undefined"?GAME_MODES:{skirmish:{id:"skirmish",name:"Skirmish",table:'36" × 36"',minerals:1000},standard:{id:"standard",name:"Standard",table:'36" × 54"',minerals:2000}};
+const MISSIONS=Array.isArray(DATA.missions)?DATA.missions:[];
+const DEPLOYS=Array.isArray(DATA.deployments)?DATA.deployments:[];
+const modeOk=id=>!!MODES[id];
+
+// ---- Basic lookups ----
+const race=()=>DATA.races[S.race];
+const card=()=>race().cards[S.card];
+const units=()=>race().units||[];
+const abbr=r=>{
+  const s=String(r||"").trim();
+  if(/^biomass$/i.test(s))return "BM";
+  return s.split(/\s+/).filter(Boolean).map(w=>w[0]).join("").toUpperCase();
+};
+function resName(n,word){
+  const w=String(word==null?(race().resource||"Resource"):word);
+  const x=+n||0;
+  if(x===1&&/[sS]$/.test(w)&&!/[sS]{2}$/.test(w))return w.replace(/s$/i,"");
+  return w;
+}
+function statPeek(u){
+  const st=u&&u.stats||{};
+  return `<div class="stats statpeek">${STATS.map(k=>`<div class="stat"><b>${esc(st[k]==null||st[k]===""?"-":st[k])}</b>${esc(k)}</div>`).join("")}</div>`;
+}
+function chevBtn(key,name){
+  const on=!!(S.statOpen&&S.statOpen[key]);
+  return `<button type="button" class="chev" data-stat="${esc(key)}" aria-expanded="${on?"true":"false"}" aria-label="${on?"Hide":"Show"} stats for ${esc(name)}">${on?"▾":"▸"}</button>`;
+}
+const unitById=id=>units().find(u=>u.id===id);
+const tactById=id=>TACT.find(t=>t.id===id);
+const missionById=id=>MISSIONS.find(m=>m.id===id);
+const deployById=id=>DEPLOYS.find(m=>m.id===id);
+const missionsOf=mode=>MISSIONS.filter(m=>m.mode===mode);
+const deploysOf=mode=>DEPLOYS.filter(m=>m.mode===mode);
+function setMode(v){
+  if(!modeOk(v))return;
+  S.mode=v;
+  const mi=missionById(S.mission),dp=deployById(S.deploy);
+  if(!mi||mi.mode!==v)S.mission="";
+  if(!dp||dp.mode!==v)S.deploy="";
+}
+const countOf=id=>S.units.filter(e=>e.id===id).length;
+const unitMax=u=>u.unique?1:(u.max||DEFMAX);
+const tactMax=t=>t.unique?1:(t.max||DEFMAX);
+const unitUpgrades=u=>(u&&Array.isArray(u.upgrades)?u.upgrades:[]).filter(x=>x&&x.id);
+const selectedUps=(e,u)=>{const ids=new Set(e&&e.ups||[]);return unitUpgrades(u).filter(x=>ids.has(x.id))};
+function cleanUps(e,u){
+  const ok=new Set(unitUpgrades(u).map(x=>x.id));
+  e.ups=(Array.isArray(e.ups)?e.ups:[]).filter(id=>ok.has(id));
+}
+const slotGroups=()=>[...SLOTS,...new Set(units().map(u=>u.slot).filter(s=>s&&s!=="Air"&&!SLOTS.includes(s)))];
+
+// ---- Squad: one cost = last filled column; two costs = second-to-last + last ----
+function options(u){
+  const f=(u.squad||[]).filter(c=>c[0]!=="-"&&c[0]!=="");
+  const p=u.pts||[0];
+  if(p.length>1&&f.length>=2){
+    const a=f[f.length-2],b=f[f.length-1];
+    return [{size:a[0],supply:a[1],cost:p[0]},{size:b[0],supply:b[1],cost:p[1]}];
+  }
+  const c=f[f.length-1]||["-",0];
+  return [{size:c[0],supply:c[1],cost:p[0]}];
+}
+// Shows only the highest model count: "2-3" -> "3 Models", "1-1" -> "1 Model"
+function sizeTxt(s){
+  const hi=String(s).split("-").pop().trim();
+  if(!hi||hi==="-")return "Add";
+  return hi+(hi==="1"?" Model":" Models");
+}
+
+// ---- Faction-only units: a tag that matches a faction card name ----
+function lockCard(u){
+  const cards=Object.entries(race().cards);
+  for(const t of u.tags||[]){
+    const m=cards.find(([,c])=>c.name.toLowerCase()===String(t).toLowerCase());
+    if(m)return m[0];
+  }
+  return null;
+}
+const isFacTag=(u,t)=>{const l=lockCard(u);return !!l&&race().cards[l].name.toLowerCase()===String(t).toLowerCase()};
+const unitOk=u=>{const l=lockCard(u);return !l||l===S.card};
+function excludeNames(u){
+  const names=[];
+  for(const id of u.excludes||[]){const x=unitById(id);if(x&&countOf(id))names.push(x.name)}
+  for(const e of S.units){const x=unitById(e.id);if(x&&(x.excludes||[]).includes(u.id))names.push(x.name)}
+  return [...new Set(names)];
+}
+const excludeBlocked=u=>excludeNames(u).length>0;
+const excludeWhy=u=>{const n=excludeNames(u);return n.length?`Cannot include with ${n.join(" / ")}`:""};
+function summonParentsOf(id){return units().filter(p=>p.summons===id)}
+function summonedByText(u){
+  const ps=summonParentsOf(u.id);
+  if(!ps.length)return "";
+  const names=ps.map(p=>p.name);
+  if(names.length===1)return "Summoned by "+names[0];
+  return "Summoned by "+names.slice(0,-1).join(", ")+" or "+names[names.length-1];
+}
+function syncSummons(){
+  const want={};
+  for(const p of units()){if(p.summons)want[p.summons]=(want[p.summons]||0)+countOf(p.id)}
+  for(const sid in want){
+    let have=0;for(const e of S.units)if(e.id===sid)have++;
+    while(have<want[sid]){S.units.push({id:sid,opt:0,ups:[]});have++}
+    while(have>want[sid]){
+      let i=-1;for(let k=S.units.length-1;k>=0;k--)if(S.units[k].id===sid){i=k;break}
+      if(i<0)break;S.units.splice(i,1);have--;
+    }
+  }
+}
+const tactOk=t=>(!t.races||t.races.includes(S.race))&&(!t.cards||t.cards.includes(S.card));
+const needsCreep=()=>(card().abilities||[]).some(a=>String(a.name).toLowerCase()==="zerg creep");
+const creepTaken=()=>Object.keys(S.tact).filter(id=>{const t=tactById(id);return t&&t.creep&&S.tact[id]>0});
+const creepOkCount=()=>creepTaken().filter(id=>tactOk(tactById(id))).reduce((n,id)=>n+S.tact[id],0);
+function creepBlocked(t){
+  if(!t||!t.creep||!needsCreep())return false;
+  const taken=creepTaken();
+  return taken.length>0&&!taken.includes(t.id);
+}
+
+// ---- Campaign: Trouble in the Koprulu Sector ----
+function freshCamp(){
+  const st=starterCard();
+  return {race:S.race,credits:CAMP_START,earned:CAMP_START,bumps:0,units:[],tact:{},cards:[st]};
+}
+function camp(){return S.camp}
+function campHas(key){return !!(S.camp&&(S.camp.cards||[]).includes(key))}
+function regCount(id){return S.camp&&S.camp.units?S.camp.units.filter(e=>e.id===id).length:0}
+function regTact(id){return S.camp&&S.camp.tact&&S.camp.tact[id]||0}
+function regMax(){return CAMP_MAX0+CAMP_STEP*(S.camp&&S.camp.bumps||0)}
+function regMin(){
+  if(!S.camp)return 0;
+  let m=0;
+  for(const e of S.camp.units||[]){
+    const u=unitById(e.id);if(!u)continue;
+    const os=options(u),o=os[e.opt]||os[0];
+    m+=o.cost||0;
+  }
+  return m;
+}
+function campTactOk(t){
+  if(!t)return false;
+  if(t.races&&!t.races.includes(S.race))return false;
+  if(t.cards&&t.cards.length&&!t.cards.some(c=>campHas(c)))return false;
+  return true;
+}
+function unusedReg(id,opt){
+  const used=new Set((S.units||[]).map(e=>e.rid).filter(x=>x!=null));
+  const list=S.camp&&S.camp.units||[];
+  for(let i=0;i<list.length;i++){
+    if(used.has(i))continue;
+    if(list[i].id===id&&(+list[i].opt||0)===(+opt||0))return i;
+  }
+  return -1;
+}
+function campScale(){
+  return (+S.minLim||0)>=1501?"standard":"skirmish";
+}
+function ensureCampaign(){
+  if(!isCampaign())return;
+  if(!S.camp||S.camp.race!==S.race){
+    S.camp=freshCamp();
+    S.units=[];S.tact={};S.card=S.camp.cards[0];
+  }
+  if(!Array.isArray(S.camp.cards)||!S.camp.cards.length)S.camp.cards=[starterCard()];
+  if(!S.camp.cards.includes(S.card))S.card=S.camp.cards[0];
+  S.credits=S.camp.credits;
+  const sc=campScale();
+  if(S.mode!==sc)setMode(sc);
+}
+function syncRegSummons(){
+  if(!S.camp)return;
+  const want={};
+  for(const p of units()){if(p.summons)want[p.summons]=(want[p.summons]||0)+regCount(p.id)}
+  for(const sid in want){
+    let have=0;for(const e of S.camp.units)if(e.id===sid)have++;
+    while(have<want[sid]){S.camp.units.push({id:sid,opt:0});have++}
+    while(have>want[sid]){
+      let i=-1;for(let k=S.camp.units.length-1;k>=0;k--)if(S.camp.units[k].id===sid){i=k;break}
+      if(i<0)break;
+      S.units=S.units.filter(e=>e.rid!==i).map(e=>e.rid>i?Object.assign({},e,{rid:e.rid-1}):e);
+      S.camp.units.splice(i,1);have--;
+    }
+  }
+}
+function regUnitWhy(u,opt){
+  if(!u||u.slot==="Summons")return "Summoned automatically.";
+  if((S.camp.credits||0)<CAMP_UNIT)return "Need "+kTxt(CAMP_UNIT)+" credits.";
+  if(u.unique&&regCount(u.id)>=1)return "Unique: already on the Register.";
+  const l=u.slot==="Hero"?null:lockCard(u);
+  if(l&&!campHas(l))return "Needs the "+race().cards[l].name+" faction card on the Register.";
+  const os=options(u),o=os[opt]||os[0];
+  if(regMin()+(o.cost||0)>regMax())return "Would exceed Register maximum ("+regMin()+" / "+regMax()+").";
+  return "";
+}
+function buyUnit(id,opt){
+  const u=unitById(id);if(!u)return;
+  const why=regUnitWhy(u,opt);if(why)return;
+  S.camp.credits-=CAMP_UNIT;
+  S.camp.units.push({id:u.id,opt:+opt||0});
+  syncRegSummons();
+}
+function buyTact(id){
+  const t=tactById(id);if(!t||!campTactOk(t))return;
+  if((S.camp.credits||0)<CAMP_TACT)return;
+  if(regTact(id)>=tactMax(t))return;
+  S.camp.credits-=CAMP_TACT;
+  S.camp.tact[id]=(S.camp.tact[id]||0)+1;
+}
+function buyCard(key){
+  const c=race().cards[key];if(!c||campHas(key))return;
+  if((S.camp.credits||0)<CAMP_FAC)return;
+  S.camp.credits-=CAMP_FAC;
+  S.camp.cards.push(key);
+}
+function buyBump(){
+  if((S.camp.credits||0)<CAMP_BUMP)return;
+  S.camp.credits-=CAMP_BUMP;
+  S.camp.bumps=(S.camp.bumps||0)+1;
+}
+function awardCred(n){
+  n=+n||0;if(n<1)return;
+  S.camp.credits=(S.camp.credits||0)+n;
+  S.camp.earned=(S.camp.earned||0)+n;
+}
+function dropRegUnit(i){
+  if(!S.camp||i<0||i>=(S.camp.units||[]).length)return;
+  const u=unitById(S.camp.units[i].id);
+  if(u&&summonParentsOf(u.id).length)return;
+  S.units=(S.units||[]).filter(e=>e.rid!==i).map(e=>e.rid>i?Object.assign({},e,{rid:e.rid-1}):e);
+  S.camp.units.splice(i,1);
+  S.camp.credits=(S.camp.credits||0)+CAMP_UNIT;
+  syncRegSummons();
+}
+function dropRegTact(id){
+  if(!S.camp||!regTact(id))return;
+  const n=regTact(id)-1;
+  if(n)S.camp.tact[id]=n;else delete S.camp.tact[id];
+  S.camp.credits=(S.camp.credits||0)+CAMP_TACT;
+  const have=S.tact[id]||0,cap=regTact(id);
+  if(have>cap){if(cap)S.tact[id]=cap;else delete S.tact[id]}
+}
+function dropRegCard(key){
+  if(!S.camp||key===starterCard()||!campHas(key))return;
+  S.camp.cards=S.camp.cards.filter(k=>k!==key);
+  S.camp.credits=(S.camp.credits||0)+CAMP_FAC;
+  if(S.card===key)S.card=S.camp.cards[0]||starterCard();
+}
+
+// ---- State ----
+function fresh(raceKey){
+  const r=raceKey&&DATA.races[raceKey]?raceKey:Object.keys(DATA.races)[0];
+  return {race:r,card:Object.keys(DATA.races[r].cards)[0],tact:{},units:[],minLim:0,gasLim:0,name:"",colL:"units",colR:"army",regL:"regFac",regR:"regArmy",statOpen:{},mode:"skirmish",mission:"",deploy:"",play:"battle",credits:0};
+}
+function load(){
+  try{
+    const s=JSON.parse(localStorage.getItem(KEY));
+    if(!s||!DATA.races[s.race])return null;
+    const r=DATA.races[s.race],us=r.units||[];
+    if(!r.cards[s.card])s.card=Object.keys(r.cards)[0];
+    s.units=(Array.isArray(s.units)?s.units:[]).filter(e=>e&&us.some(u=>u.id===e.id));
+    s.units.forEach(e=>{
+      const u=us.find(x=>x.id===e.id),n=options(u).length;
+      if(!(e.opt>=0&&e.opt<n))e.opt=0;
+      cleanUps(e,u);
+    });
+    const t={};for(const id in s.tact||{})if(TACT.some(x=>x.id===id)&&s.tact[id]>0)t[id]=s.tact[id];
+    s.tact=t;s.minLim=+s.minLim||0;s.name=s.name||"";
+    s.gasLim=gasFromMin(s.minLim);
+    if(!playOk(s.play))s.play="battle";
+    s.credits=Math.max(0,+s.credits||0);
+    if(s.camp&&typeof s.camp==="object"){
+      s.camp.credits=Math.max(0,+s.camp.credits||0);
+      s.camp.earned=Math.max(s.camp.credits,+s.camp.earned||CAMP_START);
+      s.camp.bumps=+s.camp.bumps||0;
+      s.camp.units=Array.isArray(s.camp.units)?s.camp.units.filter(e=>e&&us.some(u=>u.id===e.id)):[];
+      const ct={};for(const id in s.camp.tact||{})if(TACT.some(x=>x.id===id)&&s.camp.tact[id]>0)ct[id]=s.camp.tact[id];
+      s.camp.tact=ct;
+      s.camp.cards=Array.isArray(s.camp.cards)?s.camp.cards.filter(k=>r.cards[k]):[];
+    }else s.camp=null;
+    if(!colOk(s.colL))s.colL="units";
+    if(!colOk(s.colR))s.colR="army";
+    if(!regColOk(s.regL))s.regL="regFac";
+    if(!regColOk(s.regR))s.regR="regArmy";
+    s.statOpen=s.statOpen&&typeof s.statOpen==="object"&&!Array.isArray(s.statOpen)?s.statOpen:{};
+    if(!modeOk(s.mode))s.mode="skirmish";
+    if(!missionById(s.mission)||missionById(s.mission).mode!==s.mode)s.mission="";
+    if(!deployById(s.deploy)||deployById(s.deploy).mode!==s.mode)s.deploy="";
+    return s;
+  }catch(e){return null}
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function libGet(key){try{const a=JSON.parse(localStorage.getItem(key));return Array.isArray(a)?a:[]}catch(e){return []}}
+function libSet(key,a){try{localStorage.setItem(key,JSON.stringify(a))}catch(e){}}
+function fileBase(){return ((S.name||"unnamed").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"unnamed")}
+function downloadJson(obj,name){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),800);
+}
+function packArmy(){
+  return {kind:"army",v:12.6,saved:new Date().toISOString(),name:S.name||"Unnamed list",play:S.play||"battle",race:S.race,card:S.card,tact:S.tact,units:S.units,minLim:S.minLim,mode:S.mode,mission:S.mission,deploy:S.deploy};
+}
+function packRegister(){
+  if(!S.camp)return null;
+  return {kind:"register",v:12.6,saved:new Date().toISOString(),name:S.name||(race().name+" Register"),race:S.race,camp:JSON.parse(JSON.stringify(S.camp))};
+}
+function pruneGameToRegister(){
+  if(!isCampaign()||!S.camp)return;
+  S.units=(S.units||[]).filter(e=>{
+    if(e.rid==null)return false;
+    const re=S.camp.units[e.rid];
+    return re&&re.id===e.id;
+  });
+  for(const id in S.tact||{}){
+    const cap=regTact(id);
+    if(!cap)delete S.tact[id];
+    else if(S.tact[id]>cap)S.tact[id]=cap;
+  }
+  if(!campHas(S.card))S.card=(S.camp.cards&&S.camp.cards[0])||starterCard();
+}
+function attachArmyRids(units){
+  if(!isCampaign()||!S.camp)return units;
+  const used=new Set(),out=[];
+  for(const e of units||[]){
+    const list=S.camp.units||[];
+    let rid=e.rid!=null&&list[e.rid]&&list[e.rid].id===e.id&&!used.has(e.rid)?e.rid:-1;
+    if(rid<0){
+      for(let i=0;i<list.length;i++){
+        if(used.has(i))continue;
+        if(list[i].id===e.id&&(+list[i].opt||0)===(+e.opt||0)){rid=i;break}
+      }
+    }
+    if(rid<0)continue;
+    used.add(rid);
+    const re=list[rid];
+    out.push({id:e.id,opt:re.opt,ups:Array.isArray(e.ups)?e.ups.slice():[],rid});
+  }
+  return out;
+}
+function applyArmy(pack){
+  if(!pack||pack.kind&&pack.kind!=="army")return "That file is not an army list.";
+  if(!DATA.races[pack.race])return "Unknown race in that army list.";
+  const r=DATA.races[pack.race],us=r.units||[];
+  if(pack.play&&playOk(pack.play))S.play=pack.play;
+  if(pack.race!==S.race){
+    const play=S.play,name=pack.name||S.name,minLim=+pack.minLim||S.minLim||0;
+    S=Object.assign(fresh(pack.race),{name,minLim,play,colL:S.colL,colR:S.colR,regL:S.regL,regR:S.regR});
+    S.gasLim=gasFromMin(S.minLim);
+  }
+  S.name=pack.name||S.name||"";
+  if(r.cards[pack.card])S.card=pack.card;
+  S.minLim=+pack.minLim||0;S.gasLim=gasFromMin(S.minLim);
+  if(modeOk(pack.mode))S.mode=pack.mode;
+  S.mission=missionById(pack.mission)&&missionById(pack.mission).mode===S.mode?pack.mission:"";
+  S.deploy=deployById(pack.deploy)&&deployById(pack.deploy).mode===S.mode?pack.deploy:"";
+  const t={};for(const id in pack.tact||{})if(TACT.some(x=>x.id===id)&&pack.tact[id]>0)t[id]=pack.tact[id];
+  S.tact=t;
+  S.units=(Array.isArray(pack.units)?pack.units:[]).filter(e=>e&&us.some(u=>u.id===e.id)).map(e=>{
+    const u=us.find(x=>x.id===e.id),n=options(u).length;
+    if(!(e.opt>=0&&e.opt<n))e.opt=0;
+    cleanUps(e,u);
+    return {id:e.id,opt:e.opt,ups:e.ups||[],rid:e.rid};
+  });
+  if(isCampaign()){
+    ensureCampaign();
+    const raw=S.units||[];
+    const want=raw.filter(e=>{const u=unitById(e.id);return u&&u.slot!=="Summons"}).length;
+    const att=attachArmyRids(raw);
+    const got=att.filter(e=>{const u=unitById(e.id);return u&&u.slot!=="Summons"}).length;
+    if(want&&!got){
+      S.play="battle";
+      S.units=raw.map(e=>({id:e.id,opt:e.opt,ups:e.ups||[]}));
+      S.fileMsg="Register did not match, so this army was opened as a Single Battle list.";
+    }else{S.units=att;pruneGameToRegister()}
+  }
+  return "";
+}
+function applyRegister(pack){
+  if(!pack||pack.kind&&pack.kind!=="register")return "That file is not a campaign Register.";
+  if(!DATA.races[pack.race]||!pack.camp)return "Unknown race or empty Register.";
+  S.play="campaign";
+  if(pack.race!==S.race){
+    S=Object.assign(fresh(pack.race),{name:pack.name||S.name,minLim:S.minLim,play:"campaign",colL:S.colL,colR:S.colR,regL:S.regL,regR:S.regR});
+    S.gasLim=gasFromMin(S.minLim);
+  }
+  if(pack.name)S.name=pack.name;
+  const r=DATA.races[S.race],us=r.units||[],c=pack.camp;
+  S.camp={
+    race:S.race,
+    credits:Math.max(0,+c.credits||0),
+    earned:Math.max(0,+c.earned||CAMP_START),
+    bumps:+c.bumps||0,
+    units:Array.isArray(c.units)?c.units.filter(e=>e&&us.some(u=>u.id===e.id)):[],
+    tact:{},
+    cards:Array.isArray(c.cards)?c.cards.filter(k=>r.cards[k]):[starterCard()]
+  };
+  if(!S.camp.cards.length)S.camp.cards=[starterCard()];
+  const ct={};for(const id in c.tact||{})if(TACT.some(x=>x.id===id)&&c.tact[id]>0)ct[id]=c.tact[id];
+  S.camp.tact=ct;
+  if(S.camp.earned<S.camp.credits)S.camp.earned=S.camp.credits;
+  S.card=S.camp.cards.includes(S.card)?S.card:S.camp.cards[0];
+  pruneGameToRegister();
+  return "";
+}
+function libSave(key,pack,label){
+  const name=(S.name||label).trim()||label;
+  pack.name=name;
+  const a=libGet(key);
+  const hit=a.findIndex(x=>x.name.toLowerCase()===name.toLowerCase());
+  const row={id:hit>=0?a[hit].id:Date.now().toString(36),name,saved:pack.saved,data:pack};
+  if(hit>=0){
+    if(!confirm("Replace saved \""+name+"\"?"))return false;
+    a[hit]=row;
+  }else a.unshift(row);
+  libSet(key,a);
+  return row.id;
+}
+function libLoad(key,id){
+  const x=libGet(key).find(e=>e.id===id);
+  return x&&x.data;
+}
+function libDel(key,id){
+  libSet(key,libGet(key).filter(e=>e.id!==id));
+}
+function libOptions(key,cur){
+  const a=libGet(key);
+  if(!a.length)return '<option value="">None saved yet</option>';
+  return a.map(x=>`<option value="${esc(x.id)}"${x.id===cur?" selected":""}>${esc(x.name)} · ${(x.saved||"").slice(0,10)}</option>`).join("");
+}
+function readJsonFile(file,cb){
+  const r=new FileReader();
+  r.onload=()=>{try{cb(JSON.parse(r.result),"")}catch(e){cb(null,"That file is not valid JSON.")}};
+  r.onerror=()=>cb(null,"Could not read that file.");
+  r.readAsText(file);
+}
+function gasFromMin(min){return Math.floor(Math.max(0,+min||0)*(DATA.gasPercent||0.10))}
+function setMinLim(v){S.minLim=Math.max(0,+v||0);S.gasLim=gasFromMin(S.minLim)}
+let S=load()||fresh();
+if(S){S.gasLim=gasFromMin(S.minLim);if(!playOk(S.play))S.play="battle";if(!colOk(S.colL))S.colL="units";if(!colOk(S.colR))S.colR="army";if(!regColOk(S.regL))S.regL="regFac";if(!regColOk(S.regR))S.regR="regArmy";if(!S.statOpen||typeof S.statOpen!=="object")S.statOpen={};if(!modeOk(S.mode))S.mode="skirmish";if(!missionById(S.mission)||missionById(S.mission).mode!==S.mode)S.mission="";if(!deployById(S.deploy)||deployById(S.deploy).mode!==S.mode)S.deploy="";S.credits=Math.max(0,+S.credits||0)}
+
+// ---- Calculations ----
+function totals(){
+  const c=card(),slots={},used={};
+  let res=c.resource||0,gas=0,min=0,sup=0;
+  const add=(o,m)=>{for(const k in o||{})slots[k]=(slots[k]||0)+o[k]*m};
+  add(c.slots,1);
+  for(const id in S.tact){
+    const t=tactById(id),n=S.tact[id];if(!t||!n)continue;
+    add(t.slots,n);gas+=(t.gas||0)*n;res+=(t.resource||0)*n;
+  }
+  for(const e of S.units){
+    const u=unitById(e.id);if(!u)continue;
+    const os=options(u),o=os[e.opt]||os[0];
+    min+=o.cost||0;sup+=o.supply||0;
+    if(u.slot!=="Summons"&&!(u.slot==="Structure"&&!(o.cost)))used[u.slot]=(used[u.slot]||0)+(o.supply||0);
+    for(const up of selectedUps(e,u)) min+=upgPts(up,e);
+  }
+  return {slots,used,res,gas,min,sup};
+}
+function warnings(T){
+  const W=[];
+  for(const s of slotGroups()){const u=T.used[s]||0,a=T.slots[s]||0;if(u>a)W.push(`${s}: ${u} supply but only ${a} slot${a===1?"":"s"}.`)}
+  const seen=new Set();
+  for(const e of S.units){
+    const u=unitById(e.id);if(!u||seen.has(u.id))continue;seen.add(u.id);
+    if(!unitOk(u))W.push(`${u.name} needs the ${race().cards[lockCard(u)].name} faction card.`);
+    const ex=excludeWhy(u);if(ex)W.push(`${u.name}: ${ex}.`);
+    if(countOf(u.id)>unitMax(u))W.push(`${u.name}: max ${unitMax(u)} cop${unitMax(u)===1?"y":"ies"}.`);
+    if(u.deployCard&&S.card!==u.deployCard)W.push(u.deployWarn||`${u.name} cannot be deployed with this faction card.`);
+  }
+  for(const id in S.tact){
+    const t=tactById(id);if(!t)continue;
+    if(!tactOk(t))W.push(`${t.name} can't be used with ${card().name}.`);
+    if(S.tact[id]>tactMax(t))W.push(`${t.name}: max ${tactMax(t)}.`);
+  }
+  if(needsCreep()){
+    const n=creepOkCount();
+    if(n===0)W.push("Zerg Creep: select exactly one Creep Card.");
+    else if(n>1)W.push("Zerg Creep: only one Creep Card is allowed.");
+  }
+  if(S.minLim&&T.min>S.minLim)W.push(`Minerals over limit (${T.min} / ${S.minLim}).`);
+  if(S.gasLim&&T.gas>S.gasLim)W.push(`Vespene over limit (${T.gas} / ${S.gasLim}).`);
+  if(isCampaign()&&S.camp){
+    if(regMin()>regMax())W.push(`Register minerals over maximum (${regMin()} / ${regMax()}).`);
+    for(const e of S.units){
+      const u=unitById(e.id);if(!u||u.slot==="Summons")continue;
+      if(unusedReg(e.id,e.opt)<0&&regCount(e.id)<countOf(e.id))W.push(`${u.name} is not fully covered by the Register.`);
+    }
+    for(const id in S.tact){if((S.tact[id]||0)>regTact(id))W.push(`${tactById(id).name} is on the game list but not fully on the Register.`);}
+  }
+  return W;
+}
+
+// ---- Rendering helpers ----
+function fmtSlots(o){
+  return slotGroups().filter(s=>o&&o[s]).map(s=>`<span class="tag st s-${esc(s)}">+${o[s]} ${esc(s)}</span>`).join("");
+}
+function abilityTag(type){
+  return ABILITY_TYPES.includes(type)
+    ?`<span class="tag ab t-${type}">${type}</span>`
+    :`<span class="tag ab none">${type?esc(type):"Type?"}</span>`;
+}
+function cardLink(kind,id,name,extra){
+  return `<span class="cardlink" tabindex="0" role="button" data-open="${kind}" data-id="${esc(id)}"${extra||""}>${esc(name)}</span>`;
+}
+const uniqueTag=x=>x.unique?' <span class="tag unique">Unique</span>':"";
+function unitTags(u){
+  return (u.tags||[]).filter(t=>!/^(protoss|zerg|terran)$/i.test(t)).map(t=>`<span class="tag ${isFacTag(u,t)?"fac":"kw"}">${esc(t)}</span>`).join("");
+}
+function costLine(u){
+  const os=options(u);
+  if(os.length===1)return `Minerals: ${os[0].cost} · Supply ${os[0].supply}`;
+  return "Minerals: "+os.map(o=>`${o.cost} (${sizeTxt(o.size)})`).join(" / ");
+}
+function supplyLine(u){
+  const os=options(u);
+  if(os.length===1)return `Supply ${os[0].supply}`;
+  return os.map(o=>`${sizeTxt(o.size)} · Supply ${o.supply}`).join(" / ");
+}
+function upgPts(up,e){
+  const p=Array.isArray(up.pts)?up.pts:[up.pts];
+  const n=p.map(x=>+x||0);
+  if(!n.length)return 0;
+  if(e&&e.opt>=0&&n[e.opt]!=null)return n[e.opt];
+  return n[0]||0;
+}
+function upgCost(up,e){
+  if(e){const n=upgPts(up,e);return n?n+" minerals":"Free"}
+  if(Array.isArray(up.pts)&&up.pts.length>1)return up.pts.join("/")+" minerals";
+  const n=Array.isArray(up.pts)?up.pts[0]:up.pts;
+  return n?n+" minerals":"Free";
+}
+function entryMin(e,u){
+  const os=options(u),o=os[e.opt]||os[0];
+  return (o.cost||0)+selectedUps(e,u).reduce((s,up)=>s+upgPts(up,e),0);
+}
+function upgLine(e,u){
+  const sel=selectedUps(e,u);
+  if(!sel.length)return "";
+  return `<div class="upgline">${sel.map(up=>{const n=upgPts(up,e);return esc(up.name)+(n?` (${n})`:"")}).join(" · ")}</div>`;
+}
+function upgBlock(up,e,i){
+  const on=e&&(e.ups||[]).includes(up.id);
+  const take=i==null?"":`<div class="qty"><button class="upg${on?" on":""}" data-toggle-up="${esc(up.id)}" data-ui="${i}">${on?"Taken":"Take"}</button></div>`;
+  return `<div class="item" style="align-items:flex-start">
+    <div class="name">
+      <div class="abhead"><b>${esc(up.name)}</b>${up.type?abilityTag(up.type):""}${up.cost!=null?`<span class="tag pe">${esc(up.cost)} ${esc(abbr(race().resource))}</span>`:""}<span class="tag upg">${esc(upgCost(up,e))}</span></div>
+      ${up.replaces?`<div class="meta">Replaces ${esc(up.replaces)}</div>`:""}
+      ${up.text?`<div>${esc(up.text)}</div>`:""}
+      ${up.weapons&&up.weapons.length?weaponTable(up.weapons):""}
+    </div>
+    ${take}
+  </div>`;
+}
+function renderUpgrades(ups,e,i){
+  if(!ups.length)return "";
+  const groups={};
+  ups.forEach(up=>{const p=up.phase||"Any Phase";(groups[p]||(groups[p]=[])).push(up)});
+  const order=[...PH,...Object.keys(groups).filter(p=>!PH.includes(p))];
+  return order.filter(p=>groups[p]).map(ph=>`<div class="phase upgphase"><h4>${esc(ph)} — Upgrades</h4>${groups[ph].map(up=>upgBlock(up,e,i)).join("")}</div>`).join("");
+}
+function weaponTable(w){
+  return `<div class="scroll"><table><tr><th>Weapon</th>${WCOLS.map(c=>`<th>${esc(c[1])}</th>`).join("")}</tr>${w.map(x=>`<tr><td class="l">${esc(x.name)}</td>${WCOLS.map(([k])=>`<td${k==="kw"?' class="l"':""}>${esc(x[k]===""||x[k]==null?"-":x[k])}</td>`).join("")}</tr>`).join("")}</table></div>`;
+}
+function abilityHtml(x){
+  const ab=esc(abbr(race().resource));
+  return `<div class="ability">
+    <div class="abhead"><b>${esc(x.name)}</b>${abilityTag(x.type)}${x.cost!=null?`<span class="tag pe">${esc(x.cost)} ${ab}</span>`:""}</div>
+    <div>${esc(x.text)}</div>
+  </div>`;
+}
+// Abilities and weapons grouped under one heading per phase, like the printed cards
+function phaseBlocks(abs,ws){
+  abs=abs||[];ws=ws||[];
+  const pa=x=>x.phase||"Any Phase",pw=x=>x.phase||"Assault Phase";
+  const extra=[...new Set([...abs.map(pa),...ws.map(pw)].filter(p=>!PH.includes(p)))];
+  return [...PH,...extra].map(ph=>{
+    const a=abs.filter(x=>pa(x)===ph),w=ws.filter(x=>pw(x)===ph);
+    if(!a.length&&!w.length)return "";
+    return `<div class="phase"><h4>${esc(ph)}</h4>${w.length?weaponTable(w):""}${a.map(abilityHtml).join("")}</div>`;
+  }).join("");
+}
+function profile(u){
+  const st=u.stats||{},sq=u.squad||[];
+  let h=`<div class="stats">${STATS.map(k=>`<div class="stat"><b>${esc(st[k]==null||st[k]===""?"-":st[k])}</b>${esc(k)}</div>`).join("")}</div>`;
+  if(sq.length)h+=`<div class="scroll"><table><tr><th>Squad</th>${sq.map(c=>`<td>${esc(c[0])}</td>`).join("")}</tr><tr><th>Supply</th>${sq.map(c=>`<td>${c[0]==="-"?"-":esc(c[1])}</td>`).join("")}</tr></table></div>`;
+  return h+phaseBlocks(u.abilities,u.weapons);
+}
+
+// ---- Panels ----
+function playSelect(){
+  return `<label>Gamemode<select data-ch="play" class="gmsel play-${esc(S.play||"battle")}">${Object.values(PLAY).map(p=>`<option value="${esc(p.id)}"${p.id===S.play?" selected":""}>${esc(p.name)}</option>`).join("")}</select></label>`;
+}
+function renderSetup(){
+  const r=race(),c=card();
+  const cards=isCampaign()&&S.camp?S.camp.cards.map(k=>[k,r.cards[k]]).filter(([,x])=>x):Object.entries(r.cards);
+  $("setup").innerHTML=`<h2>${isCampaign()?"Campaign Setup":"Setup"}</h2>
+  <div class="row">
+    ${playSelect()}
+    <label>List name<input type="text" data-ch="name" value="${esc(S.name)}" placeholder="Unnamed list"></label>
+    <label>Race<select data-ch="race">${Object.entries(DATA.races).map(([k,v])=>`<option value="${esc(k)}"${k===S.race?" selected":""}>${esc(v.name)}</option>`).join("")}</select></label>
+    <label>Faction card<select data-ch="card">${cards.map(([k,v])=>`<option value="${esc(k)}"${k===S.card?" selected":""}>${esc(v.name)}</option>`).join("")}</select></label>
+    ${isCampaign()?`<label>Credits<div class="limshow"><b class="cred">${kTxt(S.camp?S.camp.credits:0)} / ${kTxt(S.camp?S.camp.earned:CAMP_START)}</b></div></label>`:""}
+    <label>${isCampaign()?"Game mineral limit":"Mineral limit"}<input type="number" min="0" step="10" data-ch="minLim" value="${S.minLim||""}" placeholder="none" style="width:110px"></label>
+    <label>Vespene limit<div class="limshow">${S.minLim?`<b>${S.gasLim}</b>`:`<span class="none">none</span>`}</div></label>
+  </div>
+  <div class="meta">Faction card: ${cardLink("faction",S.card,c.name)} · ${fmtSlots(c.slots)} · starts with ${c.resource||0} ${esc(resName(c.resource||0,r.resource||""))}</div>`;
+}
+function renderCampaign(T){
+  const el=$("campaignPanel");
+  if(!el)return;
+  if(!isCampaign()||!S.camp){el.hidden=true;el.innerHTML="";return}
+  el.hidden=false;
+  const rm=regMin(),rx=regMax(),canBump=(S.camp.credits||0)>=CAMP_BUMP;
+  el.innerHTML=`<h2>Trouble in the Koprulu Sector</h2>
+  <div class="dash">
+    <div class="tile"><small>Credits</small><b>${kTxt(S.camp.credits)} / ${kTxt(S.camp.earned)}</b><div class="sub">remaining / earned</div></div>
+    <div class="tile"><small>Register</small><b class="min" style="color:var(--min)">${rm} / ${rx}</b><div class="sub">minerals (upgrades excluded)</div></div>
+    <div class="tile"><small>Battle Roster</small><b style="color:var(--text)">${T.min}${S.minLim?" / "+S.minLim:""}</b><div class="sub">${esc((MODES[campScale()]||{}).name||"")} battle</div></div>
+    <div class="tile"><small>Starter</small><b style="color:var(--text);font-size:1.05rem">${esc(race().cards[starterCard()].name)}</b><div class="sub">${esc(race().name)} · 0k</div></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button data-bump ${canBump?"":"disabled"}>+${CAMP_STEP} Register minerals · ${kTxt(CAMP_BUMP)}</button>
+    <button data-award="1">After battle · +1k</button>
+    <button data-award="2">Win · +2k</button>
+  </div>
+  <div class="meta" style="margin-top:8px">Buy units (1k), tactical cards (2k) and extra faction cards (1k) on the Register. The Battle Roster may only use what you own. Squad size is fixed when a unit is bought.</div>`;
+}
+
+function renderTotals(T,W){
+  const r=race();
+  const mOver=S.minLim&&T.min>S.minLim,gOver=S.gasLim&&T.gas>S.gasLim;
+  let h=`<div class="totals">
+    ${isCampaign()&&S.camp?`<span class="cred">Credits: ${kTxt(S.camp.credits)} / ${kTxt(S.camp.earned)}</span>`:""}
+    <span class="min${mOver?" over":""}">Minerals: ${T.min}${S.minLim?" / "+S.minLim:""}</span>
+    <span class="gas${gOver?" over":""}">Vespene: ${T.gas}${S.gasLim?" / "+S.gasLim:""}</span>
+    <span>Supply: ${T.sup}</span>
+    <span class="res">${esc(resName(T.res,r.resource||"Resource"))}: ${T.res}</span>
+  </div>`;
+  if(S.minLim||S.gasLim){
+    h+=`<div class="totbars">`;
+    if(S.minLim)h+=`<div class="bar${mOver?" x":""}"><div style="width:${Math.min(100,T.min/S.minLim*100)}%"></div></div>`;
+    if(S.gasLim)h+=`<div class="bar g${gOver?" x":""}"><div style="width:${Math.min(100,T.gas/S.gasLim*100)}%"></div></div>`;
+    h+=`</div>`;
+  }
+  h+=`<div class="msgs">${W.length?W.map(w=>`<div class="msg err">⚠ ${esc(w)}</div>`).join(""):(S.units.length?'<div class="msg ok">✓ List is legal.</div>':'<div class="msg warn">No units yet.</div>')}</div>`;
+  $("totals").innerHTML=h;
+}
+
+function renderSlots(T){
+  $("slotsPanel").innerHTML=`<h2>${isCampaign()?"Battle Roster":"Supply Slots"}</h2><div class="slots">${slotGroups().filter(s=>s!=="Summons"&&s!=="Structure"||T.slots[s]||T.used[s]).map(s=>{
+    const u=T.used[s]||0,a=T.slots[s]||0;
+    const cls=u>a?" bad":(a&&u===a?" full":"");
+    return `<div class="slot s-${esc(s)}${cls}"><small>${esc(s)}</small><b>${u} / ${a}</b></div>`;
+  }).join("")}</div>`;
+}
+
+function tactRow(t,ab){
+  const n=S.tact[t.id]||0,mx=isCampaign()?Math.min(tactMax(t),regTact(t.id)):tactMax(t),ok=tactOk(t),blocked=creepBlocked(t);
+  const taken=creepTaken().map(id=>tactById(id).name);
+  const why=!ok?`Not available with ${esc(card().name)}`:(blocked?`Zerg Creep: you already have ${esc(taken.join(" / "))}`:(isCampaign()&&!regTact(t.id)?"Not on the Register":""));
+  return `<div class="item${ok&&!blocked?"":" off"}">
+    <div class="name">${cardLink("tact",t.id,t.name)}${uniqueTag(t)}${t.creep?' <span class="tag">Creep</span>':""}
+      <div class="meta">${fmtSlots(t.slots)}${t.resource?`<span class="tag pe">+${t.resource} ${ab}</span>`:""}${(t.cards||[]).map(k=>race().cards[k]?`<span class="tag fac">${esc(race().cards[k].name)}</span>`:"").join("")}${isCampaign()&&regTact(t.id)?`<span class="tag cred">Register ×${regTact(t.id)}</span>`:""}</div>
+      ${why?`<div class="why">${why}</div>`:""}
+    </div>
+    <div class="qty">
+      ${t.gas!=null?`<span class="gas">${t.gas}</span>`:""}
+      <button data-tact="${esc(t.id)}" data-d="-1"${n?"":" disabled"} aria-label="Remove one ${esc(t.name)}">−</button>
+      <span class="incount">${n}</span>
+      <button data-tact="${esc(t.id)}" data-d="1"${n>=mx||!ok||blocked?" disabled":""} aria-label="Add one ${esc(t.name)}">+</button>
+    </div>
+  </div>`;
+}
+function renderTact(){
+  const ab=esc(abbr(race().resource));
+  const list=TACT.filter(t=>(isCampaign()?regTact(t.id)>0||S.tact[t.id]:tactOk(t))||S.tact[t.id]);
+  if(!list.length)return '<div class="meta">No tactical cards for this race in sc-data.js yet.</div>';
+  const creep=list.filter(t=>t.creep),rest=list.filter(t=>!t.creep);
+  let h="";
+  if(needsCreep()&&creep.length){
+    const n=creepOkCount();
+    h+=`<div class="subhead">Creep Cards · exactly one required${n?` · ${n} selected`:""}</div>`;
+    h+=creep.map(t=>tactRow(t,ab)).join("");
+    if(rest.length)h+='<div class="subhead">Other Tactical Cards</div>';
+  }
+  return h+(needsCreep()?rest:list).map(t=>tactRow(t,ab)).join("");
+}
+
+function renderUnits(T){
+  let h="";
+  if(!units().length)h+='<div class="meta">No units loaded for this race.</div>';
+  else if(isCampaign()&&!(S.camp&&S.camp.units&&S.camp.units.length))h+='<div class="nodata">Nothing on the Register yet. Buy units from the Register columns above.</div>';
+  for(const s of slotGroups()){
+    const us=units().filter(u=>u.slot===s&&(!isCampaign()||regCount(u.id)>0||u.slot==="Summons"&&regCount(u.id)>0));if(!us.length)continue;
+    const u0=T.used[s]||0,a=T.slots[s]||0;
+    h+=`<div class="grouphead s-${esc(s)}"><span>${esc(s)}</span>${s==="Summons"||s==="Structure"&&!a&&!u0?"":`<span class="count${u0>a?" over":""}">${u0} / ${a}</span>`}</div>`;
+    for(const u of us){
+      if(isCampaign()&&!regCount(u.id)&&u.slot!=="Summons")continue;
+      const ok=unitOk(u),n=countOf(u.id),mx=isCampaign()?regCount(u.id)||unitMax(u):unitMax(u),full=n>=mx,blocked=excludeBlocked(u),summon=s==="Summons";
+      const why=summon?esc(summonedByText(u)):(!ok?`Needs the ${esc(race().cards[lockCard(u)].name)} faction card`:(blocked?esc(excludeWhy(u)):(full?`Max ${mx} in list`:"")));
+      const sk="u:"+u.id,open=!!(S.statOpen&&S.statOpen[sk]);
+      h+=`<div class="unitrow">
+        <div class="item s-${esc(s)}${ok&&!blocked||summon?"":" off"}">
+        ${chevBtn(sk,u.name)}
+        <div class="name">${cardLink("unit",u.id,u.name)}${uniqueTag(u)}${n?` <span class="incount">×${n}</span>`:""}${isCampaign()&&regCount(u.id)?` <span class="meta">Register ×${regCount(u.id)}</span>`:""}
+          <div class="meta">${supplyLine(u)}</div>
+          <div>${unitTags(u)}</div>
+          ${why?`<div class="why">${why}</div>`:""}
+        </div>
+        ${summon?"":`<div class="adds">${options(u).map((o,i)=>`<div class="addrow"><span class="min">${o.cost}</span><button data-add="${esc(u.id)}" data-opt="${i}"${!ok||full||blocked||(isCampaign()&&unusedReg(u.id,i)<0)?" disabled":""} aria-label="Add ${esc(u.name)}, ${esc(sizeTxt(o.size))}">${esc(sizeTxt(o.size))}</button></div>`).join("")}</div>`}
+      </div>${open?statPeek(u):""}</div>`;
+    }
+  }
+  return h;
+}
+
+function renderList(T){
+  const c=card();
+  let h=`<div class="faceline">
+      <div class="kind">${esc(race().name)} · Faction card</div>
+      <div>${cardLink("faction",S.card,c.name)}</div>
+      <div class="meta" style="margin-top:4px">${fmtSlots(c.slots)} · ${c.resource||0} ${esc(resName(c.resource||0))}</div>
+    </div>`;
+  const tk=Object.keys(S.tact).filter(id=>tactById(id)&&S.tact[id]>0);
+  if(tk.length){
+    h+='<div class="subhead">Tactical Cards</div>';
+    h+=tk.map(id=>{const t=tactById(id);return `<div class="item"><div class="name">${cardLink("tact",id,t.name)}${S.tact[id]>1?` <span class="incount">×${S.tact[id]}</span>`:""}</div></div>`}).join("");
+  }
+  if(!S.units.length)h+='<div class="nodata">No units yet. Add some from the Units view.</div>';
+  for(const s of slotGroups()){
+    const es=S.units.map((e,i)=>({e,i})).filter(x=>{const u=unitById(x.e.id);return u&&u.slot===s});
+    if(!es.length)continue;
+    const u0=T.used[s]||0,a=T.slots[s]||0;
+    h+=`<div class="grouphead s-${esc(s)}"><span>${esc(s)}</span>${s==="Summons"||s==="Structure"&&!a&&!u0?"":`<span class="count${u0>a?" over":""}">${u0} / ${a}</span>`}</div>`;
+    for(const {e,i} of es){
+      const u=unitById(e.id),os=options(u),o=os[e.opt]||os[0];
+      const ups=unitUpgrades(u),nSel=selectedUps(e,u).length;
+      const size=os.length>1&&!isCampaign()
+        ?`<select data-opti="${i}" aria-label="Squad size for ${esc(u.name)}">${os.map((x,j)=>`<option value="${j}"${j===e.opt?" selected":""}>${esc(sizeTxt(x.size))} · ${x.cost}</option>`).join("")}</select>`
+        :"";
+      const upBtn=ups.length
+        ?`<button class="upg${nSel?" on":""}" data-upg="${i}" aria-label="Upgrades for ${esc(u.name)}">Upgrade${nSel?` · ${nSel}`:""}</button>`
+        :"";
+      const auto=summonParentsOf(u.id).length>0;
+      const sk="l:"+i,open=!!(S.statOpen&&S.statOpen[sk]);
+      h+=`<div class="unitrow">
+        <div class="item s-${esc(s)}">
+        ${chevBtn(sk,u.name)}
+        <div class="name">${cardLink("unit",u.id,u.name,` data-ui="${i}"`)}${uniqueTag(u)}
+          <div class="meta">${esc(sizeTxt(o.size))} · Supply ${o.supply} · <span class="min">${entryMin(e,u)}</span> minerals</div>
+          ${upgLine(e,u)}
+          ${auto?`<div class="why">${esc(summonedByText(u))}</div>`:""}
+        </div>
+        <div class="qty">${upBtn}${size}${auto?"":`<button class="del" data-del="${i}" aria-label="Remove ${esc(u.name)}">✕</button>`}</div>
+      </div>${open?statPeek(u):""}</div>`;
+    }
+  }
+  return h;
+}
+function pickMeta(x){
+  const bits=[];
+  if(x.supply!=null)bits.push(x.supply+" Supply");
+  if(x.perRound!=null)bits.push(x.perRound+" per round");
+  if(x.rounds)bits.push(x.rounds+" round"+(x.rounds===1?"":"s"));
+  return bits.join(" · ");
+}
+function paras(v){
+  const a=Array.isArray(v)?v:(v?String(v).split(/\n+/):[]);
+  return a.filter(s=>String(s).trim()).map(p=>`<p>${esc(p)}</p>`).join("");
+}
+function ruleBlock(title,v,extra){
+  const body=(paras(v)||"")+(extra||"");
+  if(!body)return "";
+  return `<div class="phase rules"><h4>${esc(title)}</h4>${body}</div>`;
+}
+function missionBody(x){
+  const st=[];
+  if(x.supply!=null)st.push(["SUPPLY",x.supply]);
+  if(x.perRound!=null)st.push(["PER ROUND",x.perRound]);
+  if(x.rounds!=null)st.push(["ROUNDS",x.rounds]);
+  let h=st.length?`<div class="stats">${st.map(([k,v])=>`<div class="stat"><b>${esc(v)}</b>${esc(k)}</div>`).join("")}</div>`:"";
+  const drop=Array.isArray(x.dropIf)&&x.dropIf.length?`<ul>${x.dropIf.map(li=>`<li>${esc(li)}</li>`).join("")}</ul>`:"";
+  h+=ruleBlock("Mission Parameters",x.parameters);
+  h+=ruleBlock("Scoring Conditions",x.scoring);
+  h+=ruleBlock("Additional Conditions",x.additional,drop);
+  return h||'<div class="nodata">No details entered for this card yet.</div>';
+}
+function pickRow(kind,x,sel){
+  const on=sel===x.id;
+  const meta=pickMeta(x);
+  const openKind=kind==="pickm"?"mission":"deploy";
+  return `<div class="item pick m-${esc(x.mode||S.mode)}${on?" sel":""}" data-${kind}="${esc(x.id)}" tabindex="0" aria-pressed="${on?"true":"false"}">
+    <div class="name">${cardLink(openKind,x.id,x.name)}${meta?`<div class="meta">${esc(meta)}</div>`:""}</div>
+    ${on?`<span class="picked">Selected</span>`:""}
+  </div>`;
+}
+function renderRegFac(){
+  if(!S.camp)return '<div class="nodata">Campaign register is not ready.</div>';
+  let h=`<div class="subhead">Faction cards · ${kTxt(CAMP_FAC)} each · starter is free</div>`;
+  for(const [k,c] of Object.entries(race().cards)){
+    const own=campHas(k),st=k===starterCard();
+    h+=`<div class="item${own?"":" off"}"><div class="name">${cardLink("faction",k,c.name)}${uniqueTag(c)}${st?' <span class="tag">Starter</span>':""}${own?' <span class="tag cred">Owned</span>':""}
+      <div class="meta">${fmtSlots(c.slots)}</div></div>
+      ${st||own?"":`<div class="qty"><span class="cred">${kTxt(CAMP_FAC)}</span><button data-buyc="${esc(k)}"${S.camp.credits>=CAMP_FAC?"":" disabled"}>Buy</button></div>`}
+    </div>`;
+  }
+  return h;
+}
+function renderRegTact(){
+  if(!S.camp)return '<div class="nodata">Campaign register is not ready.</div>';
+  const ab=esc(abbr(race().resource));
+  let h=`<div class="subhead">Tactical cards · ${kTxt(CAMP_TACT)} each</div>`;
+  const tl=TACT.filter(t=>t.races&&t.races.includes(S.race));
+  if(!tl.length)return h+'<div class="nodata">No tactical cards for this race.</div>';
+  for(const t of tl){
+    const n=regTact(t.id),ok=campTactOk(t),full=n>=tactMax(t),need=(S.camp.credits||0)>=CAMP_TACT;
+    const why=!ok?"Needs a matching faction card on the Register":(full?"Register maximum reached":(!need?"Need "+kTxt(CAMP_TACT)+" credits":""));
+    h+=`<div class="item${ok?"":" off"}"><div class="name">${cardLink("tact",t.id,t.name)}${uniqueTag(t)}${t.creep?' <span class="tag">Creep</span>':""}${n?` <span class="incount">×${n}</span>`:""}
+      <div class="meta">${fmtSlots(t.slots)}${t.resource?`<span class="tag pe">+${t.resource} ${ab}</span>`:""}${(t.cards||[]).map(k=>race().cards[k]?`<span class="tag fac">${esc(race().cards[k].name)}</span>`:"").join("")}</div>
+      ${why?`<div class="why">${why}</div>`:""}</div>
+      <div class="qty"><span class="cred">${kTxt(CAMP_TACT)}</span><button data-buyt="${esc(t.id)}"${!ok||full||!need?" disabled":""}>Buy</button></div></div>`;
+  }
+  return h;
+}
+function renderRegUnits(){
+  if(!S.camp)return '<div class="nodata">Campaign register is not ready.</div>';
+  let h=`<div class="subhead">Units · ${kTxt(CAMP_UNIT)} each · minerals count toward the Register maximum</div>`;
+  for(const s of slotGroups()){
+    const us=units().filter(u=>u.slot===s);if(!us.length)continue;
+    h+=`<div class="grouphead s-${esc(s)}"><span>${esc(s)}</span></div>`;
+    for(const u of us){
+      const n=regCount(u.id),summon=s==="Summons";
+      const sk="r:"+u.id,open=!!(S.statOpen&&S.statOpen[sk]);
+      h+=`<div class="unitrow"><div class="item s-${esc(s)}">
+        ${chevBtn(sk,u.name)}
+        <div class="name">${cardLink("unit",u.id,u.name)}${uniqueTag(u)}${n?` <span class="incount">×${n}</span>`:""}
+          <div class="meta">${supplyLine(u)}</div><div>${unitTags(u)}</div>
+          ${summon?`<div class="why">${esc(summonedByText(u)||"Summoned automatically")}</div>`:""}
+        </div>
+        ${summon?"":`<div class="adds">${options(u).map((o,i)=>{const why=regUnitWhy(u,i);return `<div class="addrow"><span class="min">${o.cost}</span><button data-buyu="${esc(u.id)}" data-opt="${i}"${why?" disabled":""} title="${esc(why)}" aria-label="Buy ${esc(u.name)}, ${esc(sizeTxt(o.size))}">${kTxt(CAMP_UNIT)} · ${esc(sizeTxt(o.size))}</button></div>`}).join("")}</div>`}
+      </div>${open?statPeek(u):""}${!summon&&options(u).some((o,i)=>regUnitWhy(u,i))?`<div class="why" style="padding:0 10px 8px 42px">${esc([...new Set(options(u).map((o,i)=>regUnitWhy(u,i)).filter(Boolean))][0]||"")}</div>`:""}</div>`;
+    }
+  }
+  return h;
+}
+function renderRegRoster(){
+  if(!S.camp)return '<div class="nodata">Campaign register is not ready.</div>';
+  const cards=(S.camp.cards||[]).filter(k=>race().cards[k]);
+  const tk=Object.keys(S.camp.tact||{}).filter(id=>tactById(id)&&S.camp.tact[id]>0);
+  const list=S.camp.units||[];
+  let h=`<div class="meta" style="margin-bottom:8px">Register ${regMin()} / ${regMax()} · ${kTxt(S.camp.credits)} remaining. Removing an entry refunds its credit cost and drops it from the game list.</div>`;
+  h+=`<div class="subhead">Faction cards</div>`;
+  h+=cards.map(k=>{
+    const c=race().cards[k],st=k===starterCard();
+    return `<div class="item"><div class="name">${cardLink("faction",k,c.name)}${uniqueTag(c)}${st?' <span class="tag">Starter</span>':""}
+      <div class="meta">${fmtSlots(c.slots)}${st?"":` · ${kTxt(CAMP_FAC)}`}</div></div>
+      <div class="qty">${st?"":`<button class="del" data-regdel="card" data-id="${esc(k)}" aria-label="Remove ${esc(c.name)}">✕</button>`}</div>
+    </div>`;
+  }).join("");
+  h+=`<div class="subhead">Tactical cards</div>`;
+  h+=tk.length?tk.map(id=>{
+    const t=tactById(id),n=S.camp.tact[id];
+    return `<div class="item"><div class="name">${cardLink("tact",id,t.name)}${uniqueTag(t)}${n>1?` <span class="incount">×${n}</span>`:""}
+      <div class="meta">${fmtSlots(t.slots)} · ${kTxt(CAMP_TACT)} each</div></div>
+      <div class="qty"><button class="del" data-regdel="tact" data-id="${esc(id)}" aria-label="Remove ${esc(t.name)}">✕</button></div>
+    </div>`;
+  }).join(""):'<div class="nodata">No tactical cards on the Register.</div>';
+  const owned=list.filter(e=>{const u=unitById(e.id);return u&&u.slot!=="Summons"});
+  if(!owned.length)h+='<div class="nodata">No units on the Register yet. Buy some from the Units tab.</div>';
+  for(const s of slotGroups()){
+    const es=list.map((e,i)=>({e,i})).filter(x=>{const u=unitById(x.e.id);return u&&u.slot===s});
+    if(!es.length)continue;
+    h+=`<div class="grouphead s-${esc(s)}"><span>${esc(s)}</span><span class="count">${es.length}</span></div>`;
+    for(const {e,i} of es){
+      const u=unitById(e.id),os=options(u),o=os[e.opt]||os[0];
+      const auto=s==="Summons";
+      const sk="rr:"+i,open=!!(S.statOpen&&S.statOpen[sk]);
+      h+=`<div class="unitrow">
+        <div class="item s-${esc(s)}">
+        ${chevBtn(sk,u.name)}
+        <div class="name">${cardLink("unit",u.id,u.name)}${uniqueTag(u)}
+          <div class="meta">${esc(sizeTxt(o.size))} · Supply ${o.supply} · <span class="min">${o.cost||0}</span> minerals${auto?"":` · ${kTxt(CAMP_UNIT)}`}</div>
+          ${auto?`<div class="why">${esc(summonedByText(u))}</div>`:""}
+        </div>
+        <div class="qty">${auto?"":`<button class="del" data-regdel="unit" data-rid="${i}" aria-label="Remove ${esc(u.name)}">✕</button>`}</div>
+      </div>${open?statPeek(u):""}</div>`;
+    }
+  }
+  return h;
+}
+function renderMission(){
+  if(!modeOk(S.mode))S.mode="skirmish";
+  if(isCampaign())S.mode=campScale();
+  const md=MODES[S.mode];
+  const ms=missionsOf(S.mode),ds=deploysOf(S.mode);
+  let h=isCampaign()
+    ?`<div class="meta" style="margin-bottom:10px">Engagement scale is set by the game mineral limit: <b class="m-${esc(S.mode)}">${esc(md.name)}</b> · table ${esc(md.table)} · Vespene 10%. Skirmish &lt; 1501 · Standard 1501+.</div>`
+    :`<div class="row">
+    <label>Game mode<select data-ch="mode" class="modesel m-${esc(S.mode)}">${Object.values(MODES).map(m=>`<option value="${esc(m.id)}"${m.id===S.mode?" selected":""}>${esc(m.name)}</option>`).join("")}</select></label>
+  </div>
+  <div class="meta" style="margin-bottom:10px">${esc(md.name)} · table ${esc(md.table)}${md.minerals?` · typical mineral limit ${md.minerals}`:""}</div>`;
+  h+=`<div class="subhead">Missions${S.mission?` · ${esc((missionById(S.mission)||{}).name||"")}`:""}</div>`;
+  h+=ms.length?ms.map(x=>pickRow("pickm",x,S.mission)).join(""):'<div class="nodata">No missions loaded for this mode.</div>';
+  h+=`<div class="subhead">Deployments${S.deploy?` · ${esc((deployById(S.deploy)||{}).name||"")}`:""}</div>`;
+  h+=ds.length?ds.map(x=>pickRow("pickd",x,S.deploy)).join(""):'<div class="nodata">No deployments loaded for this mode.</div>';
+  return h;
+}
+function colTabsHtml(side){
+  const cur=S["col"+side];
+  return colViews().map(v=>`<button type="button" role="tab" class="${v.id===cur?"on":""}" aria-selected="${v.id===cur?"true":"false"}" data-colbank="game" data-colside="${side}" data-colview="${esc(v.id)}" title="${esc(v.name)}">${esc(v.short)}</button>`).join("");
+}
+function regTabsHtml(side){
+  const cur=S["reg"+side];
+  return REG_VIEWS.map(v=>`<button type="button" role="tab" class="${v.id===cur?"on":""}" aria-selected="${v.id===cur?"true":"false"}" data-colbank="reg" data-colside="${side}" data-colview="${esc(v.id)}" title="${esc(v.name)}">${esc(v.short)}</button>`).join("");
+}
+function viewHtml(id,T){
+  if(id==="tact")return renderTact();
+  if(id==="units")return renderUnits(T);
+  if(id==="army")return renderList(T);
+  return renderMission();
+}
+function regViewHtml(id){
+  if(id==="regFac")return renderRegFac();
+  if(id==="regTact")return renderRegTact();
+  if(id==="regArmy")return renderRegRoster();
+  return renderRegUnits();
+}
+function renderRegCols(){
+  const box=$("regCols");
+  if(!box)return;
+  const on=isCampaign();
+  box.hidden=!on;
+  if(!on)return;
+  if(!regColOk(S.regL))S.regL="regFac";
+  if(!regColOk(S.regR))S.regR="regArmy";
+  for(const side of ["L","R"]){
+    $("reg"+side+"Head").innerHTML=regTabsHtml(side);
+    $("reg"+side).innerHTML=regViewHtml(S["reg"+side]);
+  }
+}
+function renderCols(T){
+  for(const side of ["L","R"]){
+    if(!colOk(S["col"+side]))S["col"+side]=side==="L"?"units":"army";
+    const id=S["col"+side];
+    $("col"+side+"Head").innerHTML=colTabsHtml(side);
+    const wrap=$("col"+side+"Wrap");
+    wrap.classList.toggle("noprint",id!=="army");
+    $("col"+side).innerHTML=viewHtml(id,T);
+  }
+}
+
+function textList(T){
+  const L=[S.name||"Unnamed list",`${isCampaign()?"Campaign · Trouble in the Koprulu Sector":"Single Battle"} · ${race().name} – ${card().name}`,
+    `Minerals ${T.min}${S.minLim?" / "+S.minLim:""} · Vespene ${T.gas}${S.gasLim?" / "+S.gasLim:""} · Supply ${T.sup} · ${resName(T.res)} ${T.res}${isCampaign()&&S.camp?` · Credits ${kTxt(S.camp.credits)} / ${kTxt(S.camp.earned)} · Register ${regMin()} / ${regMax()}`:""}`];
+  const md=MODES[S.mode],mi=missionById(S.mission),dp=deployById(S.deploy);
+  if(md||mi||dp)L.push(`${md?md.name:"No mode"}${mi?" · "+mi.name:""}${dp?" · "+dp.name:""}`);
+  const tk=Object.keys(S.tact).filter(id=>tactById(id)&&S.tact[id]>0);
+  if(tk.length){L.push("","Tactical Cards:");tk.forEach(id=>L.push(`- ${tactById(id).name}${S.tact[id]>1?" ×"+S.tact[id]:""}`))}
+  for(const s of slotGroups()){
+    const es=S.units.filter(e=>{const u=unitById(e.id);return u&&u.slot===s});
+    if(!es.length)continue;
+    L.push("",s==="Summons"||s==="Structure"&&!(T.slots[s]||0)?`${s}:`:`${s} (${T.used[s]||0}/${T.slots[s]||0}):`);
+    es.forEach(e=>{
+      const u=unitById(e.id),os=options(u),o=os[e.opt]||os[0];
+      const extra=selectedUps(e,u).map(up=>{
+        const n=upgPts(up,e);
+        return ` + ${up.name}${n?` (${n})`:""}`;
+      }).join("");
+      L.push(`- ${u.name} (${sizeTxt(o.size)}, ${entryMin(e,u)})${extra}`);
+    });
+  }
+  return L.join("\n");
+}
+
+function renderExport(T){
+  const armyOpts=libOptions(LIB_ARMY,S.libArmy);
+  const regOpts=libOptions(LIB_REG,S.libReg);
+  const fileNote=S.fileMsg||"";S.fileMsg="";
+  let h=`<h2>Files &amp; Export</h2>
+    <div class="subhead">Army lists · Single Battle and Campaign rosters</div>
+    <div class="row">
+      <button data-act="saveArmy">Save army list</button>
+      <button data-act="dlArmy">Download JSON</button>
+      <button data-act="upArmy">Load JSON…</button>
+      <input type="file" accept="application/json" data-ch="fileArmy" hidden>
+    </div>
+    <div class="row">
+      <select class="filesel" data-ch="libArmy">${armyOpts}</select>
+      <button data-act="loadArmy">Load</button>
+      <button class="del" data-act="delArmy">Delete</button>
+    </div>`;
+  if(isCampaign())h+=`
+    <div class="subhead">Campaign registers · owned units, cards and credits</div>
+    <div class="row">
+      <button data-act="saveReg">Save register</button>
+      <button data-act="dlReg">Download JSON</button>
+      <button data-act="upReg">Load JSON…</button>
+      <input type="file" accept="application/json" data-ch="fileReg" hidden>
+    </div>
+    <div class="row">
+      <select class="filesel" data-ch="libReg">${regOpts}</select>
+      <button data-act="loadReg">Load</button>
+      <button class="del" data-act="delReg">Delete</button>
+    </div>`;
+  h+=`<div class="subhead">Text export</div>
+    <textarea id="exportText" readonly>${esc(textList(T))}</textarea>
+    <div class="row" style="margin-top:8px">
+      <button data-act="copy">Copy text</button>
+      <button data-act="pdf">Export PDF</button>
+      <button class="del" data-act="clear">Clear list</button>
+      <span class="meta" id="copyMsg">${esc(fileNote)}</span>
+    </div>
+    <div class="meta">PDF opens the print dialog with full card rules in this site’s layout. Choose Save as PDF and keep background graphics on.</div>`;
+  $("exportPanel").innerHTML=h;
+}
+
+function render(){
+  if(isCampaign())ensureCampaign();
+  syncSummons();
+  const T=totals(),W=warnings(T);
+  document.body.classList.toggle("campaign",isCampaign());
+  const title=$("appTitle"),ver=$("verline");
+  if(title)title.textContent=isCampaign()?"StarCraft Campaign":"StarCraft List Builder";
+  if(ver)ver.textContent=isCampaign()?"Trouble in the Koprulu Sector · tap any card name to see its details":"v12.6 · tap any card name to see its details";
+  renderSetup();renderCampaign(T);renderRegCols();renderTotals(T,W);renderSlots(T);renderCols(T);renderExport(T);
+  save();
+}
+
+// ---- Card viewer ----
+let lastFocus=null;
+function cardDetail(kind,id,ui){
+  if(kind==="unit"){
+    const u=unitById(id);if(!u)return null;
+    const e=ui!=null&&S.units[+ui]&&S.units[+ui].id===id?S.units[+ui]:null;
+    let body=`<div>${unitTags(u)}</div><div class="meta" style="margin-top:6px">${e?`Minerals: ${entryMin(e,u)} · Supply ${(options(u)[e.opt]||options(u)[0]).supply}`:costLine(u)}</div>`;
+    body+=profile(u);
+    body+=renderUpgrades(e?selectedUps(e,u):[],e||undefined);
+    return {sc:" s-"+u.slot,kindTxt:u.slot+" unit",title:esc(u.name)+uniqueTag(u),body};
+  }
+  if(kind==="faction"){
+    const c=race().cards[id];if(!c)return null;
+    let body=`${c.info||c.text?`<div class="info">${esc(c.info||c.text)}</div>`:""}<div>${fmtSlots(c.slots)}</div><div class="meta">Starts with ${c.resource||0} ${esc(race().resource||"")}</div>`;
+    body+=phaseBlocks(c.abilities,c.weapons)||'<div class="nodata">No abilities entered for this card yet.</div>';
+    return {sc:"",kindTxt:"Faction card",title:esc(c.name)+uniqueTag(c),body};
+  }
+  if(kind==="tact"){
+    const t=tactById(id);if(!t)return null;
+    let body=`${t.info||t.text?`<div class="info">${esc(t.info||t.text)}</div>`:""}<div>${fmtSlots(t.slots)}${t.gas?`<span class="tag gas">${t.gas} Vespene</span>`:""}${t.resource?`<span class="tag pe">+${t.resource} ${esc(abbr(race().resource))}</span>`:""}</div>`;
+    body+=phaseBlocks(t.abilities,t.weapons)||(t.text||t.info?"":'<div class="nodata">No details entered for this card yet.</div>');
+    return {sc:"",kindTxt:"Tactical card",title:esc(t.name)+uniqueTag(t),body};
+  }
+  if(kind==="mission"){
+    const x=missionById(id);if(!x)return null;
+    const md=MODES[x.mode];
+    return {sc:" m-"+(x.mode||"standard"),kindTxt:(md?md.name+" ":"")+"mission",title:esc(x.name),body:missionBody(x)};
+  }
+  if(kind==="deploy"){
+    const x=deployById(id);if(!x)return null;
+    const md=MODES[x.mode],src=x.img?encodeURI(x.img):"";
+    let body=`<div class="meta">${md?esc(md.table):""}</div>`;
+    if(src)body+=`<img class="mapimg" src="${esc(src)}" alt="${esc(x.name)} deployment map">`;
+    else body+='<div class="nodata">No map image set for this deployment.</div>';
+    return {sc:" m-"+(x.mode||"standard")+" map",kindTxt:(md?md.name+" ":"")+"deployment",title:esc(x.name),body};
+  }
+  return null;
+}
+function sheetCard(d){
+  if(!d)return "";
+  return `<article class="sheetcard${d.sc}"><div class="kind">${esc(d.kindTxt)}</div><h3>${d.title}</h3>${d.body}</article>`;
+}
+function pdfSheetHtml(T){
+  const c=card(),md=MODES[S.mode],mi=missionById(S.mission),dp=deployById(S.deploy);
+  let h=`<div class="titlebar"><h1>${esc(S.name||"Unnamed list")}</h1><span class="ver">${isCampaign()?"Campaign · Trouble in the Koprulu Sector":"Single Battle"} · v12.6</span></div>
+    <div class="panel"><div class="totals">
+      <span class="min">Minerals: ${T.min}${S.minLim?" / "+S.minLim:""}</span>
+      <span class="gas">Vespene: ${T.gas}${S.gasLim?" / "+S.gasLim:""}</span>
+      <span>Supply: ${T.sup}</span>
+      <span class="res">${esc(resName(T.res))}: ${T.res}</span>
+    </div>
+    <div class="meta" style="margin-top:8px">${esc(race().name)} · ${esc(c.name)}${md?" · "+esc(md.name):""}${mi?" · "+esc(mi.name):""}${dp?" · "+esc(dp.name):""}</div></div>`;
+  h+=sheetCard(cardDetail("faction",S.card));
+  const tk=Object.keys(S.tact).filter(id=>tactById(id)&&S.tact[id]>0);
+  tk.forEach(id=>{
+    const d=cardDetail("tact",id);if(!d)return;
+    if(S.tact[id]>1)d.title+=` <span class="incount">×${S.tact[id]}</span>`;
+    h+=sheetCard(d);
+  });
+  S.units.forEach((e,i)=>{h+=sheetCard(cardDetail("unit",e.id,i))});
+  if(mi)h+=sheetCard(cardDetail("mission",mi.id));
+  if(dp)h+=sheetCard(cardDetail("deploy",dp.id));
+  return h;
+}
+function exportPdf(){
+  const T=totals();
+  $("printSheet").innerHTML=pdfSheetHtml(T);
+  document.body.classList.add("pdfing");
+  const done=()=>{document.body.classList.remove("pdfing");window.removeEventListener("afterprint",done)};
+  window.addEventListener("afterprint",done);
+  setTimeout(()=>window.print(),50);
+}
+function openCard(kind,id,ui){
+  const d=cardDetail(kind,id,ui);if(!d)return;
+  const m=$("modal");
+  m.className="modal"+d.sc;
+  m.innerHTML=`<div class="modal-head"><div><div class="kind">${esc(d.kindTxt)}</div><h3 id="mTitle">${d.title}</h3></div><button data-close aria-label="Close">✕</button></div>${d.body}`;
+  lastFocus=document.activeElement;
+  $("overlay").classList.add("open");
+  m.querySelector("[data-close]").focus();
+}
+function closeCard(){
+  $("overlay").classList.remove("open");
+  if(lastFocus&&document.body.contains(lastFocus))lastFocus.focus();
+}
+function openUpgrades(i){
+  const e=S.units[i],u=e&&unitById(e.id);if(!u)return;
+  const ups=unitUpgrades(u);if(!ups.length)return;
+  const m=$("modal");
+  m.className="modal s-"+u.slot;
+  m.innerHTML=`<div class="modal-head"><div><div class="kind">Optional upgrades · one of each, several allowed</div><h3 id="mTitle">${esc(u.name)}</h3></div><button data-close aria-label="Close">✕</button></div>
+    ${renderUpgrades(ups,e,i)}`;
+  lastFocus=document.activeElement;
+  $("overlay").classList.add("open");
+  m.querySelector("[data-close]").focus();
+}
+
+// ---- Events ----
+document.addEventListener("click",ev=>{
+  const t=ev.target;
+  if(t.id==="overlay"){closeCard();return}
+  const el=t.closest("[data-stat],[data-open],[data-add],[data-del],[data-tact],[data-close],[data-act],[data-upg],[data-toggle-up],[data-colview],[data-pickm],[data-pickd],[data-buyu],[data-buyt],[data-buyc],[data-bump],[data-award],[data-regdel]");
+  if(!el||el.disabled)return;
+  const d=el.dataset;
+  if(d.stat!==undefined){
+    S.statOpen=S.statOpen&&typeof S.statOpen==="object"?S.statOpen:{};
+    if(S.statOpen[d.stat])delete S.statOpen[d.stat];else S.statOpen[d.stat]=1;
+    render();return;
+  }
+  if(d.colview){
+    const side=d.colside==="R"?"R":"L";
+    if(d.colbank==="reg"){if(regColOk(d.colview)){S["reg"+side]=d.colview;render()}return}
+    if(colOk(d.colview)){S["col"+side]=d.colview;render()}
+    return;
+  }
+  if(d.open!==undefined){openCard(d.open,d.id,d.ui);return}
+  if(d.pickm!==undefined){const m=missionById(d.pickm);if(m&&m.mode===S.mode){S.mission=S.mission===m.id?"":m.id;render()}return}
+  if(d.pickd!==undefined){const m=deployById(d.pickd);if(m&&m.mode===S.mode){S.deploy=S.deploy===m.id?"":m.id;render()}return}
+  if(d.close!==undefined){closeCard();return}
+  if(d.buyu!==undefined){if(isCampaign())buyUnit(d.buyu,+d.opt||0);render();return}
+  if(d.buyt!==undefined){if(isCampaign())buyTact(d.buyt);render();return}
+  if(d.buyc!==undefined){if(isCampaign())buyCard(d.buyc);render();return}
+  if(d.bump!==undefined){if(isCampaign())buyBump();render();return}
+  if(d.award!==undefined){if(isCampaign())awardCred(+d.award||0);render();return}
+  if(d.regdel!==undefined){
+    if(isCampaign()){
+      if(d.regdel==="unit")dropRegUnit(+d.rid);
+      else if(d.regdel==="tact")dropRegTact(d.id);
+      else if(d.regdel==="card")dropRegCard(d.id);
+    }
+    render();return;
+  }
+  if(d.add!==undefined){
+    const u=unitById(d.add);if(!u||u.slot==="Summons"||!unitOk(u)||excludeBlocked(u))return;
+    if(isCampaign()){
+      const rid=unusedReg(u.id,+d.opt||0);if(rid<0)return;
+      const re=S.camp.units[rid];
+      S.units.push({id:u.id,opt:re.opt,ups:[],rid});render();return;
+    }
+    if(countOf(u.id)>=unitMax(u))return;
+    S.units.push({id:u.id,opt:+d.opt||0,ups:[]});render();return;
+  }
+  if(d.upg!==undefined){openUpgrades(+d.upg);return}
+  if(d.toggleUp!==undefined){
+    const e=S.units[+d.ui];if(!e)return;
+    const u=unitById(e.id);if(!u)return;
+    if(!unitUpgrades(u).some(x=>x.id===d.toggleUp))return;
+    e.ups=Array.isArray(e.ups)?e.ups.slice():[];
+    const x=e.ups.indexOf(d.toggleUp);
+    if(x>=0)e.ups.splice(x,1);
+    else{
+      const up=unitUpgrades(u).find(z=>z.id===d.toggleUp);
+      if(up&&up.replaces)e.ups=e.ups.filter(id=>{const o=unitUpgrades(u).find(z=>z.id===id);return !o||o.replaces!==up.replaces});
+      e.ups.push(d.toggleUp);
+    }
+    render();openUpgrades(+d.ui);return;
+  }
+  if(d.del!==undefined){S.units.splice(+d.del,1);render();return}
+  if(d.tact!==undefined){
+    const tc=tactById(d.tact);if(!tc)return;
+    const dlt=+d.d;
+    if(dlt>0&&creepBlocked(tc))return;
+    const cap=isCampaign()?Math.min(tactMax(tc),regTact(tc.id)):tactMax(tc);
+    const n=Math.max(0,Math.min(cap,(S.tact[tc.id]||0)+dlt));
+    if(n)S.tact[tc.id]=n;else delete S.tact[tc.id];
+    render();return;
+  }
+  if(d.act==="pdf"){exportPdf();return}
+  if(d.act==="saveArmy"){
+    const id=libSave(LIB_ARMY,packArmy(),"Unnamed list");
+    if(id){S.libArmy=id;S.fileMsg="Army list saved."}render();return;
+  }
+  if(d.act==="dlArmy"){downloadJson(packArmy(),fileBase()+"-army.json");S.fileMsg="Army JSON downloaded.";render();return}
+  if(d.act==="upArmy"){const f=$("exportPanel").querySelector('[data-ch="fileArmy"]');if(f)f.click();return}
+  if(d.act==="loadArmy"){
+    const pack=libLoad(LIB_ARMY,S.libArmy);if(!pack){alert("Select a saved army list first.");return}
+    if(!confirm("Load this army list? The current roster will be replaced."))return;
+    const why=applyArmy(pack);if(why){alert(why);return}
+    S.fileMsg="Army list loaded.";render();return;
+  }
+  if(d.act==="delArmy"){
+    if(!S.libArmy){alert("Select a saved army list first.");return}
+    if(!confirm("Delete this saved army list?"))return;
+    libDel(LIB_ARMY,S.libArmy);S.libArmy="";S.fileMsg="Saved army list deleted.";render();return;
+  }
+  if(d.act==="saveReg"){
+    if(!isCampaign()||!S.camp)return;
+    const id=libSave(LIB_REG,packRegister(),race().name+" Register");
+    if(id){S.libReg=id;S.fileMsg="Register saved."}render();return;
+  }
+  if(d.act==="dlReg"){const p=packRegister();if(!p)return;downloadJson(p,fileBase()+"-register.json");S.fileMsg="Register JSON downloaded.";render();return}
+  if(d.act==="upReg"){const f=$("exportPanel").querySelector('[data-ch="fileReg"]');if(f)f.click();return}
+  if(d.act==="loadReg"){
+    const pack=libLoad(LIB_REG,S.libReg);if(!pack){alert("Select a saved Register first.");return}
+    if(!confirm("Load this Register? Credits, owned cards and units will be replaced. The game roster is trimmed to match."))return;
+    const why=applyRegister(pack);if(why){alert(why);return}
+    S.fileMsg="Register loaded.";render();return;
+  }
+  if(d.act==="delReg"){
+    if(!S.libReg){alert("Select a saved Register first.");return}
+    if(!confirm("Delete this saved Register?"))return;
+    libDel(LIB_REG,S.libReg);S.libReg="";S.fileMsg="Saved Register deleted.";render();return;
+  }
+  if(d.act==="clear"){
+    if(confirm(isCampaign()?"Clear the game roster? The Register is kept.":"Clear all units and tactical cards from this list?")){S.units=[];S.tact={};render()}
+    return;
+  }
+  if(d.act==="copy"){
+    const ta=$("exportText"),msg=$("copyMsg");
+    const fallback=()=>{ta.select();try{document.execCommand("copy");msg.textContent="Copied."}catch(e){msg.textContent="Select the text and copy it manually."}};
+    if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(ta.value).then(()=>{msg.textContent="Copied."},fallback);
+    else fallback();
+  }
+});
+document.addEventListener("keydown",ev=>{
+  if(ev.key==="Escape"&&$("overlay").classList.contains("open")){closeCard();return}
+  const t=ev.target;
+  if(t.classList&&t.classList.contains("cardlink")&&(ev.key==="Enter"||ev.key===" ")){ev.preventDefault();openCard(t.dataset.open,t.dataset.id,t.dataset.ui)}
+  const pick=t.closest&&t.closest("[data-pickm],[data-pickd]");
+  if(pick&&(ev.key==="Enter"||ev.key===" ")){ev.preventDefault();pick.click()}
+});
+document.addEventListener("change",ev=>{
+  const t=ev.target,d=t.dataset;
+  if(d.opti!==undefined){if(isCampaign())return;const e=S.units[+d.opti];if(e){e.opt=+t.value||0;render()}return}
+  if(!d.ch)return;
+  const v=t.value;
+  if(d.ch==="name")S.name=v.trim();
+  else if(d.ch==="race"){
+    if(v===S.race)return;
+    if((S.units.length||Object.keys(S.tact).length||(S.camp&&(S.camp.units||[]).length))&&!confirm("Changing race clears your current units, tactical cards and Register. Continue?")){t.value=S.race;return}
+    const play=S.play;
+    S=Object.assign(fresh(v),{name:S.name,minLim:S.minLim,colL:S.colL,colR:S.colR,regL:S.regL,regR:S.regR,mode:S.mode,mission:S.mission,deploy:S.deploy,play});
+    S.gasLim=gasFromMin(S.minLim);
+    if(play==="campaign"){if(!colOk(S.colL))S.colL="units";S.colR="army";if(!regColOk(S.regL))S.regL="regFac";if(!regColOk(S.regR))S.regR="regArmy"}
+  }
+  else if(d.ch==="card"){if(!isCampaign()||campHas(v))S.card=v}
+  else if(d.ch==="minLim")setMinLim(v);
+  else if(d.ch==="mode"){if(!isCampaign())setMode(v)}
+  else if(d.ch==="play"){
+    if(!playOk(v))return;
+    S.play=v;
+    if(v==="campaign"){if(!colOk(S.colL))S.colL="units";if(!colOk(S.colR))S.colR="army";if(!regColOk(S.regL))S.regL="regFac";if(!regColOk(S.regR))S.regR="regArmy"}
+    else{if(!colOk(S.colL))S.colL="units";if(!colOk(S.colR))S.colR="army"}
+  }
+  else if(d.ch==="libArmy"){S.libArmy=v;return}
+  else if(d.ch==="libReg"){S.libReg=v;return}
+  else if(d.ch==="fileArmy"||d.ch==="fileReg"){
+    const f=t.files&&t.files[0];t.value="";
+    if(!f)return;
+    const reg=d.ch==="fileReg";
+    readJsonFile(f,(pack,err)=>{
+      const why=err||(reg?applyRegister(pack):applyArmy(pack));
+      if(why){alert(why);return}
+      S.fileMsg=reg?"Register loaded from JSON.":"Army list loaded from JSON.";
+      render();
+    });
+    return;
+  }
+  render();
+});
+
+render();
+});
+</script>
 </body>
 </html>

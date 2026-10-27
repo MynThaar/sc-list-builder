@@ -2,7 +2,7 @@
 
 Browser list builder for StarCraft: The Miniatures Game, including **Trouble in the Koprulu Sector** campaign mode.
 
-Open [sc-list-builder-v12.6.html](sc-list-builder-v12.6.html) (or this repo’s GitHub Pages URL). Everything runs in the browser. Lists and campaign Registers are stored in that browser’s local storage, so each person has their own data.
+Open [https://mynthaar.github.io/sc-list-builder/](https://mynthaar.github.io/sc-list-builder/). That address stays the same when the app is updated. Everything runs in the browser. Lists and campaign Registers are stored in that browser’s local storage, so each person has their own data.
 
 # Changelog
 - Units fill as many rank slots as their Supply (including squad-size options)
@@ -17,7 +17,8 @@ Open [sc-list-builder-v12.6.html](sc-list-builder-v12.6.html) (or this repo’s 
 
 ## Files
 
-- `sc-list-builder-v12.6.html` — the app
+- `index.html` — the app (stable GitHub Pages URL)
+- `sc-list-builder-v12.6.html` — redirect to `/` for old bookmarks
 - `sc-data.js` — loader and game settings
 - `protoss.js` / `zerg.js` / `terran.js` — faction data
 - `missions.js` — missions and deployments
