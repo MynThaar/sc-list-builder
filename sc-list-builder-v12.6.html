@@ -281,7 +281,7 @@ if(typeof DATA==="undefined"||!DATA||!DATA.races||!Object.keys(DATA.races).lengt
 const PH=(typeof PHASES!=="undefined"&&Array.isArray(PHASES))?PHASES:["Any Phase","Movement Phase","Assault Phase","Combat Phase"];
 const SLOTS=typeof SLOT_TYPES!=="undefined"?SLOT_TYPES:["Hero","Core","Elite","Support","Structure","Summons"];
 const COL_BASE=[{id:"tact",name:"Tactical Cards",short:"Tactical"},{id:"units",name:"Units",short:"Units"},{id:"army",name:"Roster",short:"Roster"},{id:"mission",name:"Mission & Deploy",short:"Mission"}];
-const REG_VIEWS=[{id:"regFac",name:"Faction Cards",short:"Faction"},{id:"regTact",name:"Tactical Cards",short:"Tactical"},{id:"regUnits",name:"Units",short:"Units"},{id:"regArmy",name:"Register Roster",short:"Roster"}];
+const REG_VIEWS=[{id:"regFac",name:"Faction Cards",short:"Faction"},{id:"regTact",name:"Tactical Cards",short:"Tactical"},{id:"regUnits",name:"Units",short:"Units"},{id:"regArmy",name:"Register",short:"Register"}];
 function colViews(){return COL_BASE}
 function colOk(id){return COL_BASE.some(v=>v.id===id)}
 function regColOk(id){return REG_VIEWS.some(v=>v.id===id)}
@@ -445,18 +445,6 @@ function campTactOk(t){
   if(t.cards&&t.cards.length&&!t.cards.some(c=>campHas(c)))return false;
   return true;
 }
-function campSlotOn(slot){
-  if(slot==="Hero"||slot==="Summons"||slot==="Structure")return true;
-  for(const id in (S.camp&&S.camp.tact)||{}){
-    if(!S.camp.tact[id])continue;
-    const t=tactById(id);
-    if(t&&t.slots&&t.slots[slot])return true;
-  }
-  return false;
-}
-function slotProducers(slot){
-  return TACT.filter(t=>(!t.races||t.races.includes(S.race))&&t.slots&&t.slots[slot]);
-}
 function unusedReg(id,opt){
   const used=new Set((S.units||[]).map(e=>e.rid).filter(x=>x!=null));
   const list=S.camp&&S.camp.units||[];
@@ -502,10 +490,6 @@ function regUnitWhy(u,opt){
   if(u.unique&&regCount(u.id)>=1)return "Unique: already on the Register.";
   const l=u.slot==="Hero"?null:lockCard(u);
   if(l&&!campHas(l))return "Needs the "+race().cards[l].name+" faction card on the Register.";
-  if((u.slot==="Core"||u.slot==="Elite"||u.slot==="Support")&&!campSlotOn(u.slot)){
-    const names=slotProducers(u.slot).map(t=>t.name);
-    return "Needs a "+u.slot+" tech building on the Register"+(names.length?": "+names.slice(0,3).join(", ")+(names.length>3?"…":""):".");
-  }
   const os=options(u),o=os[opt]||os[0];
   if(regMin()+(o.cost||0)>regMax())return "Would exceed Register maximum ("+regMin()+" / "+regMax()+").";
   return "";
@@ -934,7 +918,7 @@ function renderCampaign(T){
   <div class="dash">
     <div class="tile"><small>Credits</small><b>${kTxt(S.camp.credits)} / ${kTxt(S.camp.earned)}</b><div class="sub">remaining / earned</div></div>
     <div class="tile"><small>Register</small><b class="min" style="color:var(--min)">${rm} / ${rx}</b><div class="sub">minerals (upgrades excluded)</div></div>
-    <div class="tile"><small>Game list</small><b style="color:var(--text)">${T.min}${S.minLim?" / "+S.minLim:""}</b><div class="sub">${esc((MODES[campScale()]||{}).name||"")} battle</div></div>
+    <div class="tile"><small>Battle Roster</small><b style="color:var(--text)">${T.min}${S.minLim?" / "+S.minLim:""}</b><div class="sub">${esc((MODES[campScale()]||{}).name||"")} battle</div></div>
     <div class="tile"><small>Starter</small><b style="color:var(--text);font-size:1.05rem">${esc(race().cards[starterCard()].name)}</b><div class="sub">${esc(race().name)} · 0k</div></div>
   </div>
   <div class="row" style="margin-top:10px">
@@ -942,7 +926,7 @@ function renderCampaign(T){
     <button data-award="1">After battle · +1k</button>
     <button data-award="2">Win · +2k</button>
   </div>
-  <div class="meta" style="margin-top:8px">Buy units (1k), tactical cards (2k) and extra faction cards (1k) on the Register. Game lists may only use what you own. Squad size is fixed when a unit is bought.</div>`;
+  <div class="meta" style="margin-top:8px">Buy units (1k), tactical cards (2k) and extra faction cards (1k) on the Register. The Battle Roster may only use what you own. Squad size is fixed when a unit is bought.</div>`;
 }
 
 function renderTotals(T,W){
@@ -966,7 +950,7 @@ function renderTotals(T,W){
 }
 
 function renderSlots(T){
-  $("slotsPanel").innerHTML=`<h2>Supply Slots</h2><div class="slots">${slotGroups().filter(s=>s!=="Summons"&&s!=="Structure"||T.slots[s]||T.used[s]).map(s=>{
+  $("slotsPanel").innerHTML=`<h2>${isCampaign()?"Battle Roster":"Supply Slots"}</h2><div class="slots">${slotGroups().filter(s=>s!=="Summons"&&s!=="Structure"||T.slots[s]||T.used[s]).map(s=>{
     const u=T.used[s]||0,a=T.slots[s]||0;
     const cls=u>a?" bad":(a&&u===a?" full":"");
     return `<div class="slot s-${esc(s)}${cls}"><small>${esc(s)}</small><b>${u} / ${a}</b></div>`;
